@@ -1,0 +1,8 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "./gradlew": true
+  },
+  "kotlin.scripts.enabled": true,
+  "kotlin.scripts.buildScriptsEnabled": true,
+  "kotlin.languageServer.enabled": true
+}

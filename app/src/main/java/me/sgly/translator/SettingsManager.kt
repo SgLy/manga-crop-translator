@@ -1,0 +1,32 @@
+package me.sgly.translator
+
+import android.content.Context
+import android.content.SharedPreferences
+
+class SettingsManager(context: Context) {
+    private val prefs: SharedPreferences = context.getSharedPreferences("api_settings", Context.MODE_PRIVATE)
+
+    var vlmApiBase: String
+        get() = prefs.getString("vlmApiBase", "https://api.openai.com/v1") ?: "https://api.openai.com/v1"
+        set(value) = prefs.edit().putString("vlmApiBase", value).apply()
+
+    var vlmApiKey: String
+        get() = prefs.getString("vlmApiKey", "") ?: ""
+        set(value) = prefs.edit().putString("vlmApiKey", value).apply()
+
+    var vlmModel: String
+        get() = prefs.getString("vlmModel", "gpt-4o") ?: "gpt-4o"
+        set(value) = prefs.edit().putString("vlmModel", value).apply()
+
+    var llmApiBase: String
+        get() = prefs.getString("llmApiBase", "https://api.openai.com/v1") ?: "https://api.openai.com/v1"
+        set(value) = prefs.edit().putString("llmApiBase", value).apply()
+
+    var llmApiKey: String
+        get() = prefs.getString("llmApiKey", "") ?: ""
+        set(value) = prefs.edit().putString("llmApiKey", value).apply()
+
+    var llmModel: String
+        get() = prefs.getString("llmModel", "gpt-4o") ?: "gpt-4o"
+        set(value) = prefs.edit().putString("llmModel", value).apply()
+}
