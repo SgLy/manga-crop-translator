@@ -33,6 +33,14 @@
             android:name=".FloatingService"
             android:foregroundServiceType="mediaProjection"
             android:exported="false" />
+
+        <activity
+            android:name=".ResultActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:exported="false" />
     </application>
 
 </manifest>

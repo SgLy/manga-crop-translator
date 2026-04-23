@@ -33,9 +33,9 @@ class FloatingService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var floatingView: View
-    private var resultViewLayout: View? = null
     private lateinit var screenCaptureManager: ScreenCaptureManager
     private lateinit var overlayScreenManager: OverlayScreenManager
+    private lateinit var resultOverlayManager: ResultOverlayManager
     private lateinit var openAIApiClient: OpenAIApiClient
 
     private val serviceScope = CoroutineScope(Dispatchers.Main)
@@ -49,6 +49,7 @@ class FloatingService : Service() {
         createNotificationChannel()
         screenCaptureManager = ScreenCaptureManager(this)
         overlayScreenManager = OverlayScreenManager(this)
+        resultOverlayManager = ResultOverlayManager(this)
         openAIApiClient = OpenAIApiClient(SettingsManager(this))
 
         serviceScope.launch {
@@ -59,38 +60,43 @@ class FloatingService : Service() {
                         Toast.makeText(this@FloatingService, "Fetching VLM OCR...", Toast.LENGTH_SHORT).show()
                         // Launch API calls sequentially in a background coroutine
                         serviceScope.launch {
-                            showResultWindow("\n--- New Translate Request ---\n[System]: Fetching VLM OCR...\n[OCR]: ", isAppend = true)
+                            resultOverlayManager.appendText("\n--- New Translate Request ---\n[System]: Fetching VLM OCR...\n[OCR]: ", clearFirst = false)
                             try {
-                                var ocrText = ""
-                                openAIApiClient.extractTextFromImageStream(croppedBitmap).collect { chunk ->
-                                    ocrText += chunk
+                                val ocrResult = openAIApiClient.extractTextFromImage(croppedBitmap) { chunk ->
                                     withContext(Dispatchers.Main) {
-                                        appendResultText(chunk)
+                                        resultOverlayManager.appendText(chunk, clearFirst = false)
                                     }
+                                }
+                                val prettyJson = kotlinx.serialization.json.Json { prettyPrint = true }
+                                val ocrText = prettyJson.encodeToString(me.sgly.translator.OcrResult.serializer(), ocrResult)
+                                withContext(Dispatchers.Main) {
+                                    resultOverlayManager.appendText("\n\n[OCR Result]:\n" + ocrText)
                                 }
                                 
                                 if (ocrText.isBlank()) {
                                     withContext(Dispatchers.Main) {
-                                        appendResultText("\n\n[Error]: OCR returned empty text. Please check if your VLM endpoint and model support image inputs.")
+                                        resultOverlayManager.appendText("\n\n[Error]: OCR returned empty text. Please check if your VLM endpoint and model support image inputs.")
                                     }
                                     return@launch
                                 }
 
                                 withContext(Dispatchers.Main) {
-                                    appendResultText("\n\n[System]: OCR Success! Translating...\n[Translate]: ")
+                                    resultOverlayManager.appendText("\n\n[System]: OCR Success! Translating...\n[Translate]: ")
                                 }
 
-                                var translatedText = ""
-                                openAIApiClient.translateTextStream(ocrText).collect { chunk ->
-                                    translatedText += chunk
+                                val translateResult = openAIApiClient.translateText(ocrText) { chunk ->
                                     withContext(Dispatchers.Main) {
-                                        appendResultText(chunk)
+                                        resultOverlayManager.appendText(chunk, clearFirst = false)
                                     }
+                                }
+                                val translatedText = prettyJson.encodeToString(me.sgly.translator.TranslationResult.serializer(), translateResult)
+                                withContext(Dispatchers.Main) {
+                                    resultOverlayManager.appendText("\n\n[Translate Result]:\n" + translatedText)
                                 }
                                 
                             } catch (e: Exception) {
                                 withContext(Dispatchers.Main) {
-                                    appendResultText("\n\n[Error]: ${e.message}")
+                                    resultOverlayManager.appendText("\n\n[Error]: ${e.message}")
                                 }
                             }
                         }
@@ -160,7 +166,7 @@ class FloatingService : Service() {
             // On click
             setOnClickListener {
                 serviceScope.launch {
-                    showResultWindow("[System]: Screen frozen, ready to crop!", isAppend = false)
+                    resultOverlayManager.appendText("[System]: Screen frozen, ready to crop!", clearFirst = true)
                 }
                 floatingView.visibility = View.INVISIBLE // 隐藏悬浮窗以免挡住截图
                 screenCaptureManager.captureScreen()
@@ -214,89 +220,11 @@ class FloatingService : Service() {
         windowManager.addView(floatingView, params)
     }
 
-    private var resultTextView: TextView? = null
-    private var resultScrollView: ScrollView? = null
-    private val historyText = StringBuilder()
-
-    private suspend fun showResultWindow(text: String, isAppend: Boolean = false) = withContext(Dispatchers.Main) {
-        if (resultViewLayout == null) {
-            val params = LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                800, // Fixed height for the bottom sheet
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) LayoutParams.TYPE_APPLICATION_OVERLAY else LayoutParams.TYPE_PHONE,
-                LayoutParams.FLAG_NOT_FOCUSABLE,
-                PixelFormat.TRANSLUCENT
-            )
-            params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            params.x = 0
-            params.y = 0
-
-            val layout = FrameLayout(this@FloatingService)
-            // Use dark solid color for clear text reading
-            layout.setBackgroundColor(Color.parseColor("#EE222222"))
-
-            val scrollView = ScrollView(this@FloatingService)
-            val scrollParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-            scrollParams.setMargins(32, 80, 32, 32)
-            scrollView.layoutParams = scrollParams
-
-            val textView = TextView(this@FloatingService)
-            textView.setTextColor(Color.WHITE)
-            textView.textSize = 16f
-            resultTextView = textView
-            resultScrollView = scrollView
-
-            scrollView.addView(textView)
-            layout.addView(scrollView)
-
-            val closeButton = Button(this@FloatingService)
-            closeButton.text = "✖ Dismiss"
-            closeButton.textSize = 14f
-            closeButton.setBackgroundColor(Color.TRANSPARENT)
-            closeButton.setTextColor(Color.LTGRAY)
-            val btnParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-            btnParams.gravity = Gravity.TOP or Gravity.END
-            closeButton.layoutParams = btnParams
-            closeButton.setOnClickListener {
-                hideResultWindow()
-            }
-            layout.addView(closeButton)
-
-            resultViewLayout = layout
-            windowManager.addView(layout, params)
-        }
-
-        if (!isAppend) {
-            historyText.clear()
-        }
-        historyText.append(text)
-        resultTextView?.text = historyText.toString()
-
-        scrollTextToBottom()
-    }
-
-    private suspend fun appendResultText(text: String) = showResultWindow(text, true)
-
-    private fun scrollTextToBottom() {
-        resultScrollView?.post {
-            resultScrollView?.fullScroll(View.FOCUS_DOWN)
-        }
-    }
-
-    private fun hideResultWindow() {
-        resultViewLayout?.let {
-            if (it.isAttachedToWindow) {
-                windowManager.removeView(it)
-            }
-            resultViewLayout = null
-            resultTextView = null
-        }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         screenCaptureManager.release()
         overlayScreenManager.release()
+        resultOverlayManager.release()
         if (::windowManager.isInitialized && ::floatingView.isInitialized) {
             windowManager.removeView(floatingView)
         }
