@@ -46,6 +46,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.schema.annotations)
     implementation(libs.kotlinx.schema.generator.json)
@@ -60,6 +61,6 @@ dependencies {
     // Networking and JSON
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.json:json:20231013") // Easy JSON parsing for API bodies
+    implementation("org.json:json:20231013")
 }
 
