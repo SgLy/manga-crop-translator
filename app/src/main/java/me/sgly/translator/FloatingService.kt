@@ -73,11 +73,23 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         openAIApiClient = OpenAIApiClient(SettingsManager(this))
 
         serviceScope.launch {
+            var wasVisible = false
+            TranslatorState.isVisible.collect { visible ->
+                if (wasVisible && !visible && ::floatingView.isInitialized) {
+                    floatingView.visibility = View.VISIBLE
+                }
+                wasVisible = visible
+            }
+        }
+
+        serviceScope.launch {
             screenCaptureManager.screenCaptureFlow.collectLatest { bitmap ->
+                var didStartTranslation = false
                 overlayScreenManager.showOverlay(
                     bitmap,
                     { croppedBitmap ->
                         if (croppedBitmap != null) {
+                            didStartTranslation = true
                             serviceScope.launch {
                                 resultOverlayManager.startOcr()
                                 try {
@@ -104,7 +116,9 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                         }
                     },
                     {
-                        floatingView.visibility = View.VISIBLE
+                        if (!didStartTranslation) {
+                            floatingView.visibility = View.VISIBLE
+                        }
                     }
                 )
             }
@@ -155,7 +169,11 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             isFocusable = false
         }
 
-        val frameLayout = FrameLayout(this).apply {
+        val frameLayout = object : FrameLayout(this) {
+            override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+                return true
+            }
+        }.apply {
             clipChildren = false
             clipToPadding = false
             setViewTreeLifecycleOwner(this@FloatingService)
