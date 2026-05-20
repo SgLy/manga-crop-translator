@@ -1,6 +1,8 @@
 package me.sgly.translator
 
+import kotlin.coroutines.resume
 import kotlin.math.abs
+import kotlinx.coroutines.suspendCancellableCoroutine
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.layout.offset
 
@@ -68,8 +70,13 @@ class OverlayScreenManager(private val context: Context) : LifecycleOwner, Saved
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
     }
 
-    fun showOverlay(bitmap: Bitmap, onCropAreaSelected: (Bitmap?) -> Unit, onDismiss: () -> Unit = {}) {
-        if (overlayView != null) return
+    suspend fun showOverlay(bitmap: Bitmap): Bitmap? = suspendCancellableCoroutine { cont ->
+        if (overlayView != null) {
+            cont.resume(null)
+            return@suspendCancellableCoroutine
+        }
+
+        cont.invokeOnCancellation { hideOverlay() }
 
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
@@ -80,10 +87,10 @@ class OverlayScreenManager(private val context: Context) : LifecycleOwner, Saved
             setViewTreeViewModelStoreOwner(this@OverlayScreenManager)
             
             setContent {
-                OverlayScreenContent(bitmap = bitmap) {
-                    onCropAreaSelected(it)
-                    hideOverlay()
-                    onDismiss()
+                OverlayScreenContent(bitmap = bitmap) { result ->
+                    // 不在这里 hideOverlay：让调用方在 startActivity 之后再 hide，
+                    // 确保 startActivity 时 app 还有可见窗口（Android 10+ 限制）
+                    if (!cont.isCompleted) cont.resume(result)
                 }
             }
         }
@@ -105,7 +112,7 @@ class OverlayScreenManager(private val context: Context) : LifecycleOwner, Saved
         windowManager.addView(overlayView, params)
     }
 
-    private fun hideOverlay() {
+    internal fun hideOverlay() {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         

@@ -41,7 +41,9 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import android.util.Log
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
@@ -50,7 +52,6 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private lateinit var floatingView: View
     private lateinit var screenCaptureManager: ScreenCaptureManager
     private lateinit var overlayScreenManager: OverlayScreenManager
-    private lateinit var resultOverlayManager: ResultOverlayManager
     private lateinit var openAIApiClient: OpenAIApiClient
 
     private val serviceScope = CoroutineScope(Dispatchers.Main)
@@ -69,58 +70,75 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         createNotificationChannel()
         screenCaptureManager = ScreenCaptureManager(this)
         overlayScreenManager = OverlayScreenManager(this)
-        resultOverlayManager = ResultOverlayManager(this)
         openAIApiClient = OpenAIApiClient(SettingsManager(this))
 
+        // FAB visibility: visible only when Idle
         serviceScope.launch {
-            var wasVisible = false
-            TranslatorState.isVisible.collect { visible ->
-                if (wasVisible && !visible && ::floatingView.isInitialized) {
-                    floatingView.visibility = View.VISIBLE
+            TranslatorState.phase.collect { phase ->
+                if (::floatingView.isInitialized) {
+                    floatingView.visibility = if (phase == AppPhase.Idle) View.VISIBLE else View.INVISIBLE
                 }
-                wasVisible = visible
             }
         }
 
+        // Orchestration: drive the pipeline based on current phase
         serviceScope.launch {
-            screenCaptureManager.screenCaptureFlow.collectLatest { bitmap ->
-                var didStartTranslation = false
-                overlayScreenManager.showOverlay(
-                    bitmap,
-                    { croppedBitmap ->
-                        if (croppedBitmap != null) {
-                            didStartTranslation = true
-                            serviceScope.launch {
-                                resultOverlayManager.startOcr()
-                                try {
-                                    val ocrResult = openAIApiClient.extractTextFromImage(croppedBitmap) { }
-                                    if (ocrResult.blocks.isEmpty()) {
-                                        resultOverlayManager.ocrError("OCR returned empty text. Please check if your VLM endpoint and model support image inputs.")
-                                        return@launch
-                                    }
-                                    resultOverlayManager.ocrDone(ocrResult)
-                                    resultOverlayManager.startLlm()
-                                    val prettyJson = kotlinx.serialization.json.Json { prettyPrint = true }
-                                    val ocrText = prettyJson.encodeToString(OcrResult.serializer(), ocrResult)
-                                    val translateResult = openAIApiClient.translateText(ocrText) { }
-                                    resultOverlayManager.llmDone(translateResult)
-                                } catch (e: Exception) {
-                                    val currentOcrStatus = TranslatorState.ocrStatus.value
-                                    if (currentOcrStatus == StepStatus.LOADING) {
-                                        resultOverlayManager.ocrError("Error: ${e.message}")
-                                    } else {
-                                        resultOverlayManager.llmError("Error: ${e.message}")
-                                    }
-                                }
-                            }
+            TranslatorState.phase.collectLatest { phase ->
+                when (phase) {
+                    AppPhase.Capturing -> {
+                        if (!screenCaptureManager.captureScreen()) {
+                            TranslatorState.transition(AppPhase.Idle, TransitionReason.CaptureError)
+                            return@collectLatest
                         }
-                    },
-                    {
-                        if (!didStartTranslation) {
-                            floatingView.visibility = View.VISIBLE
+                        val bitmap = screenCaptureManager.screenCaptureFlow.first()
+                        Log.i("TranslatorState", "capturedBitmap: ${bitmap.width}×${bitmap.height}")
+                        TranslatorState.capturedBitmap = bitmap
+                        TranslatorState.transition(AppPhase.Cropping, TransitionReason.FrameCaptured)
+                    }
+                    AppPhase.Cropping -> {
+                        val cropped = overlayScreenManager.showOverlay(TranslatorState.capturedBitmap!!)
+                        if (cropped != null) {
+                            TranslatorState.croppedBitmap = cropped
+                            Log.i("TranslatorState", "croppedBitmap: ${cropped.width}×${cropped.height}")
+                            startActivity(Intent(this@FloatingService, ResultActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            })
+                            overlayScreenManager.hideOverlay()
+                            TranslatorState.transition(AppPhase.Recognizing, TransitionReason.CropSelected)
+                        } else {
+                            overlayScreenManager.hideOverlay()
+                            TranslatorState.transition(AppPhase.Idle, TransitionReason.CropCancelled)
                         }
                     }
-                )
+                    AppPhase.Recognizing -> {
+                        try {
+                            val result = openAIApiClient.extractTextFromImage(TranslatorState.croppedBitmap!!) { }
+                            if (result.blocks.isEmpty()) {
+                                TranslatorState.setErrorText("OCR returned empty text. Please check if your VLM endpoint and model support image inputs.")
+                                TranslatorState.transition(AppPhase.OcrError, TransitionReason.OcrFailed)
+                            } else {
+                                TranslatorState.setOcrResult(result)
+                                TranslatorState.transition(AppPhase.Parsing, TransitionReason.OcrSuccess)
+                            }
+                        } catch (e: Exception) {
+                            TranslatorState.setErrorText("Error: ${e.message}")
+                            TranslatorState.transition(AppPhase.OcrError, TransitionReason.OcrFailed)
+                        }
+                    }
+                    AppPhase.Parsing -> {
+                        try {
+                            val prettyJson = kotlinx.serialization.json.Json { prettyPrint = true }
+                            val ocrText = prettyJson.encodeToString(OcrResult.serializer(), TranslatorState.ocrResult.value!!)
+                            val result = openAIApiClient.translateText(ocrText) { }
+                            TranslatorState.setTranslationResult(result)
+                            TranslatorState.transition(AppPhase.Done, TransitionReason.LlmSuccess)
+                        } catch (e: Exception) {
+                            TranslatorState.setErrorText("Error: ${e.message}")
+                            TranslatorState.transition(AppPhase.LlmError, TransitionReason.LlmFailed)
+                        }
+                    }
+                    else -> { /* Idle/Done/OcrError/LlmError: UI handles these */ }
+                }
             }
         }
     }
@@ -224,8 +242,7 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     }
                     MotionEvent.ACTION_UP -> {
                         if (!isDragging) {
-                            floatingView.visibility = View.INVISIBLE
-                            screenCaptureManager.captureScreen()
+                            TranslatorState.transition(AppPhase.Capturing, TransitionReason.FabClicked)
                         }
                         return true
                     }
@@ -245,7 +262,6 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         screenCaptureManager.release()
         overlayScreenManager.release()
-        resultOverlayManager.release()
         if (::windowManager.isInitialized && ::floatingView.isInitialized) {
             windowManager.removeView(floatingView)
         }

@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkPermissionsAndStart() {
+        TranslatorState.reset()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         } else {

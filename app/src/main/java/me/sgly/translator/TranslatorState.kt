@@ -1,0 +1,120 @@
+package me.sgly.translator
+
+import android.graphics.Bitmap
+import android.util.Log
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+enum class AppPhase {
+    Idle,        // FAB visible, waiting for user
+    Capturing,   // FAB hidden, waiting for screen frame
+    Cropping,    // Crop overlay visible, user selecting region
+    Recognizing, // Result sheet open, OCR in progress
+    Parsing,     // Result sheet open, LLM in progress
+    Done,        // Result sheet open, both steps complete
+    OcrError,    // Result sheet open, OCR failed
+    LlmError     // Result sheet open, LLM failed (OCR result preserved)
+}
+
+enum class TransitionReason {
+    FabClicked,    // Idle → Capturing
+    FrameCaptured, // Capturing → Cropping
+    CaptureError,  // Capturing → Idle (mediaProjection not ready)
+    CropSelected,  // Cropping → Recognizing
+    CropCancelled, // Cropping → Idle
+    OcrSuccess,    // Recognizing → Parsing
+    OcrFailed,     // Recognizing → OcrError
+    LlmSuccess,    // Parsing → Done
+    LlmFailed,     // Parsing → LlmError
+    ThinkHarder,   // Done → Recognizing (re-run everything, same crop)
+    Retry,         // OcrError → Recognizing; LlmError → Parsing
+    Dismiss,       // Done/OcrError/LlmError → Idle
+    Reset          // any → Idle (triggered from MainActivity on fresh start)
+}
+
+data class Transition(
+    val from: AppPhase,
+    val to: AppPhase,
+    val reason: TransitionReason
+)
+
+object TranslatorState {
+
+    private val _phase = MutableStateFlow(AppPhase.Idle)
+    val phase: StateFlow<AppPhase> = _phase.asStateFlow()
+
+    private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
+    val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
+
+    // Raw bitmaps: not observed reactively by UI, read directly when needed
+    var capturedBitmap: Bitmap? = null
+    var croppedBitmap: Bitmap? = null
+
+    // Result data: observed reactively by UI components
+    private val _ocrResult = MutableStateFlow<OcrResult?>(null)
+    val ocrResult: StateFlow<OcrResult?> = _ocrResult.asStateFlow()
+
+    private val _translationResult = MutableStateFlow<TranslationResult?>(null)
+    val translationResult: StateFlow<TranslationResult?> = _translationResult.asStateFlow()
+
+    private val _errorText = MutableStateFlow("")
+    val errorText: StateFlow<String> = _errorText.asStateFlow()
+
+    // Data setters — call before transition() so UI sees consistent state on phase change
+    fun setOcrResult(result: OcrResult) { _ocrResult.value = result }
+    fun setTranslationResult(result: TranslationResult) { _translationResult.value = result }
+    fun setErrorText(text: String) { _errorText.value = text }
+
+    /**
+     * The single entry point for all state transitions.
+     * Applies data-clearing rules appropriate to the reason, then updates phase.
+     */
+    fun transition(to: AppPhase, reason: TransitionReason) {
+        val from = _phase.value
+        Log.i("TranslatorState", "$from → $to [$reason]")
+        when (reason) {
+            TransitionReason.ThinkHarder -> {
+                // Re-run OCR with same crop: clear both results
+                _ocrResult.value = null
+                _translationResult.value = null
+                _errorText.value = ""
+            }
+            TransitionReason.Retry -> {
+                _errorText.value = ""
+                _translationResult.value = null
+                // OcrError retry re-runs OCR: also clear ocrResult
+                if (from == AppPhase.OcrError) _ocrResult.value = null
+                // LlmError retry preserves ocrResult (only re-runs LLM)
+            }
+            TransitionReason.Dismiss,
+            TransitionReason.CropCancelled,
+            TransitionReason.CaptureError,
+            TransitionReason.Reset -> {
+                capturedBitmap = null
+                croppedBitmap = null
+                _ocrResult.value = null
+                _translationResult.value = null
+                _errorText.value = ""
+            }
+            else -> {}
+        }
+        _phase.value = to
+        _lastTransition.tryEmit(Transition(from, to, reason))
+    }
+
+    /** Resets all state to Idle. Called from MainActivity on fresh start. */
+    fun reset() {
+        val from = _phase.value
+        capturedBitmap = null
+        croppedBitmap = null
+        _ocrResult.value = null
+        _translationResult.value = null
+        _errorText.value = ""
+        _phase.value = AppPhase.Idle
+        _lastTransition.tryEmit(Transition(from, AppPhase.Idle, TransitionReason.Reset))
+    }
+}

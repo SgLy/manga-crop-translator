@@ -38,26 +38,39 @@ class ResultActivity : ComponentActivity() {
         setContent {
             val colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
             MaterialTheme(colorScheme = colorScheme) {
-                val isVisible by TranslatorState.isVisible.collectAsState()
-                val ocrStatus by TranslatorState.ocrStatus.collectAsState()
-                val llmStatus by TranslatorState.llmStatus.collectAsState()
+                val phase by TranslatorState.phase.collectAsState()
                 val ocrResult by TranslatorState.ocrResult.collectAsState()
                 val translationResult by TranslatorState.translationResult.collectAsState()
+                val errorText by TranslatorState.errorText.collectAsState()
+
+                val ocrStatus = when (phase) {
+                    AppPhase.Recognizing -> StepUiStatus.Loading
+                    AppPhase.OcrError -> StepUiStatus.Error
+                    AppPhase.Parsing, AppPhase.Done, AppPhase.LlmError -> StepUiStatus.Done
+                    else -> StepUiStatus.Idle
+                }
+                val llmStatus = when (phase) {
+                    AppPhase.Parsing -> StepUiStatus.Loading
+                    AppPhase.Done -> StepUiStatus.Done
+                    AppPhase.LlmError -> StepUiStatus.Error
+                    else -> StepUiStatus.Idle
+                }
 
                 // Word card selection state
                 val selectedIndices = remember { mutableStateSetOf<Int>() }
 
-                LaunchedEffect(isVisible) {
-                    if (!isVisible) {
+                LaunchedEffect(phase) {
+                    if (phase == AppPhase.Idle || phase == AppPhase.Capturing || phase == AppPhase.Cropping) {
                         finish()
                     }
                 }
 
-                if (isVisible) {
+                val isSheetVisible = phase != AppPhase.Idle && phase != AppPhase.Capturing && phase != AppPhase.Cropping
+                if (isSheetVisible) {
                     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
                     ModalBottomSheet(
-                        onDismissRequest = { TranslatorState.dismiss() },
+                        onDismissRequest = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
                         sheetState = sheetState,
                         scrimColor = Color.Transparent,
                         dragHandle = { BottomSheetDefaults.DragHandle() }
@@ -75,20 +88,23 @@ class ResultActivity : ComponentActivity() {
                                     .heightIn(min = 60.dp, max = 400.dp)
                                     .verticalScroll(rememberScrollState())
                             ) {
-                                // Show step rows only while in progress, hide when both done
-                                if (ocrStatus != StepStatus.DONE || llmStatus != StepStatus.DONE) {
-                                    // Step 1: OCR status row
-                                    StepRow(
-                                        label = "识别图片",
-                                        status = ocrStatus
-                                    )
+                                // Show step rows while not yet Done
+                                if (phase != AppPhase.Done) {
+                                    StepRow(label = "识别图片", status = ocrStatus)
 
-                                    // Step 2: LLM status row (only visible after OCR starts)
-                                    if (llmStatus != StepStatus.IDLE) {
+                                    // LLM row visible after OCR phase
+                                    if (phase != AppPhase.Recognizing && phase != AppPhase.OcrError) {
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        StepRow(
-                                            label = "解析文本",
-                                            status = llmStatus
+                                        StepRow(label = "解析文本", status = llmStatus)
+                                    }
+
+                                    // Error detail
+                                    if ((phase == AppPhase.OcrError || phase == AppPhase.LlmError) && errorText.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = errorText,
+                                            color = MaterialTheme.colorScheme.error,
+                                            fontSize = 13.sp
                                         )
                                     }
                                 }
@@ -110,13 +126,18 @@ class ResultActivity : ComponentActivity() {
                                 }
                             }
 
-                            // Fixed bottom bar
-                            if (translationResult != null && ocrResult != null) {
+                            // Fixed bottom bar: show in Done/OcrError/LlmError phases
+                            if (phase == AppPhase.Done || phase == AppPhase.OcrError || phase == AppPhase.LlmError) {
                                 BottomActionBar(
+                                    phase = phase,
                                     hasSelection = selectedIndices.isNotEmpty(),
-                                    onLogClick = { /* TODO: 日志 */ },
-                                    onRetryClick = { /* TODO: 再想想 */ },
-                                    onConfirmClick = { /* TODO: 记一下/知道了 */ }
+                                    onDismiss = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
+                                    onRetry = {
+                                        val nextPhase = if (phase == AppPhase.LlmError) AppPhase.Parsing else AppPhase.Recognizing
+                                        TranslatorState.transition(nextPhase, TransitionReason.Retry)
+                                    },
+                                    onThinkHarder = { TranslatorState.transition(AppPhase.Recognizing, TransitionReason.ThinkHarder) },
+                                    onConfirm = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) }
                                 )
                             }
                         }
@@ -132,21 +153,23 @@ class ResultActivity : ComponentActivity() {
     }
 }
 
+enum class StepUiStatus { Idle, Loading, Done, Error }
+
 @Composable
-fun StepRow(label: String, status: StepStatus) {
+fun StepRow(label: String, status: StepUiStatus) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
         when (status) {
-            StepStatus.LOADING -> {
+            StepUiStatus.Loading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            StepStatus.DONE -> {
+            StepUiStatus.Done -> {
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = "Done",
@@ -154,7 +177,7 @@ fun StepRow(label: String, status: StepStatus) {
                     modifier = Modifier.size(16.dp)
                 )
             }
-            StepStatus.ERROR -> {
+            StepUiStatus.Error -> {
                 Icon(
                     imageVector = Icons.Default.Error,
                     contentDescription = "Error",
@@ -162,7 +185,7 @@ fun StepRow(label: String, status: StepStatus) {
                     modifier = Modifier.size(16.dp)
                 )
             }
-            StepStatus.IDLE -> {
+            StepUiStatus.Idle -> {
                 Spacer(modifier = Modifier.size(16.dp))
             }
         }
@@ -173,13 +196,13 @@ fun StepRow(label: String, status: StepStatus) {
             text = label,
             fontSize = 13.sp,
             color = when (status) {
-                StepStatus.LOADING -> MaterialTheme.colorScheme.onSurface
-                StepStatus.DONE -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                StepStatus.ERROR -> MaterialTheme.colorScheme.error
-                StepStatus.IDLE -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                StepUiStatus.Loading -> MaterialTheme.colorScheme.onSurface
+                StepUiStatus.Done -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                StepUiStatus.Error -> MaterialTheme.colorScheme.error
+                StepUiStatus.Idle -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
             },
             fontWeight = when (status) {
-                StepStatus.LOADING -> FontWeight.Medium
+                StepUiStatus.Loading -> FontWeight.Medium
                 else -> FontWeight.Normal
             }
         )
@@ -284,37 +307,50 @@ fun ResultBlocks(
 
 @Composable
 fun BottomActionBar(
+    phase: AppPhase,
     hasSelection: Boolean,
-    onLogClick: () -> Unit,
-    onRetryClick: () -> Unit,
-    onConfirmClick: () -> Unit
+    onDismiss: () -> Unit,
+    onRetry: () -> Unit,
+    onThinkHarder: () -> Unit,
+    onConfirm: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp, bottom = 24.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left: text button "日志"
-        TextButton(onClick = onLogClick) {
+        TextButton(onClick = {
+            android.widget.Toast.makeText(context, "unimplemented: 日志", android.widget.Toast.LENGTH_SHORT).show()
+        }) {
             Text("日志")
         }
-        // Right side: push to the right
         Spacer(modifier = Modifier.weight(1f))
-        // Text button "再想想" (no border)
-        TextButton(onClick = onRetryClick) {
-            Text("再想想")
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-        // Conditional right button
-        if (hasSelection) {
-            Button(onClick = onConfirmClick) {
-                Text("记一下")
+        when (phase) {
+            AppPhase.Done -> {
+                TextButton(onClick = onThinkHarder) {
+                    Text("再想想")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                if (hasSelection) {
+                    Button(onClick = {
+                        android.widget.Toast.makeText(context, "unimplemented: 记一下", android.widget.Toast.LENGTH_SHORT).show()
+                    }) {
+                        Text("记一下")
+                    }
+                } else {
+                    OutlinedButton(onClick = onConfirm) {
+                        Text("知道了")
+                    }
+                }
             }
-        } else {
-            OutlinedButton(onClick = onConfirmClick) {
-                Text("知道了")
+            AppPhase.OcrError, AppPhase.LlmError -> {
+                Button(onClick = onRetry) {
+                    Text("重试")
+                }
             }
+            else -> {}
         }
     }
 }

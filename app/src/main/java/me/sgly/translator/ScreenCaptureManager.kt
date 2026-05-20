@@ -29,13 +29,16 @@ class ScreenCaptureManager(private val context: Context) {
         mediaProjection = projection
     }
 
-    fun captureScreen() {
-        val mp = mediaProjection ?: return
-        
+    /** Returns true if capture was initiated, false if mediaProjection is not ready. */
+    fun captureScreen(): Boolean {
+        val mp = mediaProjection ?: return false
+
         if (!isCallbackRegistered) {
             mp.registerCallback(object : MediaProjection.Callback() {}, null)
             isCallbackRegistered = true
         }
+
+        captureRequested = true
 
         if (virtualDisplay == null) {
             val metrics = DisplayMetrics()
@@ -52,41 +55,35 @@ class ScreenCaptureManager(private val context: Context) {
             imageReader = ImageReader.newInstance(screenWidth, screenHeight, PixelFormat.RGBA_8888, 2)
             
             imageReader?.setOnImageAvailableListener({ reader ->
-                val image: Image? = reader.acquireLatestImage()
-                image?.let {
-                    if (captureRequested) {
-                        captureRequested = false
-                        
-                        val planes = it.planes
-                        val buffer = planes[0].buffer
-                        val pixelStride = planes[0].pixelStride
-                        val rowStride = planes[0].rowStride
-                        val rowPadding = rowStride - pixelStride * screenWidth
+                // Always acquire and close to keep the buffer free; only process when requested.
+                val image: Image? = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+                image?.use {
+                    if (!captureRequested) return@use
+                    captureRequested = false
 
-                        val bitmap = Bitmap.createBitmap(
-                            screenWidth + rowPadding / pixelStride,
-                            screenHeight,
-                            Bitmap.Config.ARGB_8888
-                        )
-                        bitmap.copyPixelsFromBuffer(buffer)
-                        
-                        // Crop row padding if needed
-                        val finalBitmap = if (rowPadding > 0) {
-                            Bitmap.createBitmap(bitmap, 0, 0, screenWidth, screenHeight)
-                        } else {
-                            bitmap
-                        }
-                        
-                        _screenCaptureFlow.tryEmit(finalBitmap)
-                        
-                        // Pause capture surface to save resources and avoid extra frames
-                        virtualDisplay?.surface = null
+                    val planes = image.planes
+                    val buffer = planes[0].buffer
+                    val pixelStride = planes[0].pixelStride
+                    val rowStride = planes[0].rowStride
+                    val rowPadding = rowStride - pixelStride * screenWidth
+
+                    val bitmap = Bitmap.createBitmap(
+                        screenWidth + rowPadding / pixelStride,
+                        screenHeight,
+                        Bitmap.Config.ARGB_8888
+                    )
+                    bitmap.copyPixelsFromBuffer(buffer)
+
+                    val finalBitmap = if (rowPadding > 0) {
+                        Bitmap.createBitmap(bitmap, 0, 0, screenWidth, screenHeight)
+                    } else {
+                        bitmap
                     }
-                    it.close()
+
+                    _screenCaptureFlow.tryEmit(finalBitmap)
                 }
             }, null)
 
-            captureRequested = true
             virtualDisplay = mp.createVirtualDisplay(
                 "ScreenCapture",
                 screenWidth,
@@ -97,11 +94,9 @@ class ScreenCaptureManager(private val context: Context) {
                 null,
                 null
             )
-        } else {
-            // For subsequent requests, simply re-attach the surface to capture a new frame
-            captureRequested = true
-            virtualDisplay?.surface = imageReader?.surface
         }
+        // Surface stays attached; captureRequested=true is enough to capture the next frame.
+        return true
     }
 
     fun release() {
