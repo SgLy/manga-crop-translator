@@ -18,7 +18,7 @@ data class TranslationWord(
     @Description("简明扼要的中文释义")
     val definition: String,
     @Description("介于 0 到 1 之间相对难度评分")
-    val difficulty: Double
+    val difficulty: Double?
 )
 
 @Serializable

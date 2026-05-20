@@ -68,7 +68,7 @@ class OverlayScreenManager(private val context: Context) : LifecycleOwner, Saved
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
     }
 
-    fun showOverlay(bitmap: Bitmap, onCropAreaSelected: (Bitmap?) -> Unit) {
+    fun showOverlay(bitmap: Bitmap, onCropAreaSelected: (Bitmap?) -> Unit, onDismiss: () -> Unit = {}) {
         if (overlayView != null) return
 
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
@@ -83,6 +83,7 @@ class OverlayScreenManager(private val context: Context) : LifecycleOwner, Saved
                 OverlayScreenContent(bitmap = bitmap) {
                     onCropAreaSelected(it)
                     hideOverlay()
+                    onDismiss()
                 }
             }
         }
