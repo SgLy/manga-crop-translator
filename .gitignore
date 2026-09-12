@@ -17,6 +17,7 @@
 .cxx
 local.properties
 plan.md
+DESIGN.md
 quick-test/node_modules
 quick-test/.env
 quick-test/crop.png
