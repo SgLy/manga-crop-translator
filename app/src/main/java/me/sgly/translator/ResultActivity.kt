@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -90,12 +91,12 @@ class ResultActivity : ComponentActivity() {
                             ) {
                                 // Show step rows while not yet Done
                                 if (phase != AppPhase.Done) {
-                                    StepRow(label = "识别图片", status = ocrStatus)
+                                    StepRow(label = stringResource(R.string.step_recognize), status = ocrStatus)
 
                                     // LLM row visible after OCR phase
                                     if (phase != AppPhase.Recognizing && phase != AppPhase.OcrError) {
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        StepRow(label = "解析文本", status = llmStatus)
+                                        StepRow(label = stringResource(R.string.step_parse), status = llmStatus)
                                     }
 
                                     // Error detail
@@ -322,32 +323,32 @@ fun BottomActionBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         TextButton(onClick = {
-            android.widget.Toast.makeText(context, "unimplemented: 日志", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(R.string.not_implemented), android.widget.Toast.LENGTH_SHORT).show()
         }) {
-            Text("日志")
+            Text(stringResource(R.string.action_logs))
         }
         Spacer(modifier = Modifier.weight(1f))
         when (phase) {
             AppPhase.Done -> {
                 TextButton(onClick = onThinkHarder) {
-                    Text("再想想")
+                    Text(stringResource(R.string.action_think_harder))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 if (hasSelection) {
                     Button(onClick = {
-                        android.widget.Toast.makeText(context, "unimplemented: 记一下", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, context.getString(R.string.not_implemented), android.widget.Toast.LENGTH_SHORT).show()
                     }) {
-                        Text("记一下")
+                        Text(stringResource(R.string.action_save))
                     }
                 } else {
                     OutlinedButton(onClick = onConfirm) {
-                        Text("知道了")
+                        Text(stringResource(R.string.action_got_it))
                     }
                 }
             }
             AppPhase.OcrError, AppPhase.LlmError -> {
                 Button(onClick = onRetry) {
-                    Text("重试")
+                    Text(stringResource(R.string.action_retry))
                 }
             }
             else -> {}

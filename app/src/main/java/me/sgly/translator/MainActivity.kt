@@ -25,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -151,12 +152,12 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Manga cropping translator") },
+                title = { Text(stringResource(R.string.home_title)) },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings"
+                            contentDescription = stringResource(R.string.cd_settings)
                         )
                     }
                 }
@@ -177,7 +178,7 @@ fun HomeScreen(
                     .height(56.dp)
             ) {
                 Text(
-                    text = "Start",
+                    text = stringResource(R.string.start),
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -210,12 +211,12 @@ fun SettingsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.cd_back)
                         )
                     }
                 }
@@ -230,27 +231,27 @@ fun SettingsScreen(
                 .padding(horizontal = 24.dp)
         ) {
             // ---- Image recognition model (VLM) ----
-            SectionTitle("Image Recognition Model")
+            SectionTitle(stringResource(R.string.image_recognition_model))
             Text(
-                text = "*Configure an LLM that supports image input",
+                text = stringResource(R.string.vlm_hint),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingsField(
-                    label = "API Base URL",
+                    label = stringResource(R.string.label_base_url),
                     value = vlmApiBase,
                     onValueChange = { vlmApiBase = it; settingsManager.vlmApiBase = it }
                 )
                 SettingsField(
-                    label = "API Key",
+                    label = stringResource(R.string.label_api_key),
                     value = vlmApiKey,
                     password = true,
                     onValueChange = { vlmApiKey = it; settingsManager.vlmApiKey = it }
                 )
                 SettingsField(
-                    label = "Model",
+                    label = stringResource(R.string.label_model),
                     value = vlmModel,
                     onValueChange = { vlmModel = it; settingsManager.vlmModel = it }
                 )
@@ -264,7 +265,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Also use the image recognition model for translation",
+                    text = stringResource(R.string.use_vlm_for_translation),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f)
                 )
@@ -280,22 +281,22 @@ fun SettingsScreen(
             // ---- Translation model (LLM), only when not reusing the VLM ----
             if (!useVlmForTranslation) {
                 Spacer(modifier = Modifier.height(12.dp))
-                SectionTitle("Translation Model")
+                SectionTitle(stringResource(R.string.translation_model))
                 Spacer(modifier = Modifier.height(12.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SettingsField(
-                        label = "API Base URL",
+                        label = stringResource(R.string.label_base_url),
                         value = llmApiBase,
                         onValueChange = { llmApiBase = it; settingsManager.llmApiBase = it }
                     )
                     SettingsField(
-                        label = "API Key",
+                        label = stringResource(R.string.label_api_key),
                         value = llmApiKey,
                         password = true,
                         onValueChange = { llmApiKey = it; settingsManager.llmApiKey = it }
                     )
                     SettingsField(
-                        label = "Model",
+                        label = stringResource(R.string.label_model),
                         value = llmModel,
                         onValueChange = { llmModel = it; settingsManager.llmModel = it }
                     )
@@ -306,13 +307,13 @@ fun SettingsScreen(
 
             // ---- Thinking strength ladder ----
             SettingsField(
-                label = "Thinking Strength",
+                label = stringResource(R.string.thinking_strength),
                 value = thinkingLevels,
                 onValueChange = { thinkingLevels = it; settingsManager.thinkingLevels = it }
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Separate levels with non-letters; each \"Think harder\" goes one step up.",
+                text = stringResource(R.string.thinking_strength_hint),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

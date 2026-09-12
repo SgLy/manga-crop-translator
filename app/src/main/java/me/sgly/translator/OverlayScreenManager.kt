@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
@@ -249,7 +250,7 @@ fun OverlayScreenContent(bitmap: Bitmap, onCropAreaSelected: (Bitmap?) -> Unit) 
 
         if (startPoint == null) {
             Text(
-                "请拖动手指框选漫画气泡\n单击空白处退出",
+                stringResource(R.string.overlay_hint),
                 color = Color.White,
                 modifier = Modifier.align(Alignment.Center)
             )

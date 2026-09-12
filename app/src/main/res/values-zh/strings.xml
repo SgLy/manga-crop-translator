@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">漫画翻译</string>
+    <string name="home_title">漫画框选翻译</string>
+    <string name="settings_title">设置</string>
+    <string name="cd_back">返回</string>
+    <string name="cd_settings">设置</string>
+    <string name="start">开始</string>
+
+    <string name="image_recognition_model">图片识别模型</string>
+    <string name="vlm_hint">*配置支持图片输入的 LLM</string>
+    <string name="label_base_url">API 地址</string>
+    <string name="label_api_key">API 密钥</string>
+    <string name="label_model">模型</string>
+    <string name="use_vlm_for_translation">同时使用图片识别模型进行翻译</string>
+    <string name="translation_model">翻译模型</string>
+    <string name="thinking_strength">思考强度</string>
+    <string name="thinking_strength_hint">以非英文字母分隔，每次「再想想」依次递增</string>
+
+    <string name="overlay_hint">拖动框选漫画文字\n点空白处退出</string>
+    <string name="step_recognize">识别图片</string>
+    <string name="step_parse">解析文本</string>
+    <string name="action_logs">日志</string>
+    <string name="action_think_harder">再想想</string>
+    <string name="action_save">记一下</string>
+    <string name="action_got_it">知道了</string>
+    <string name="action_retry">重试</string>
+</resources>
