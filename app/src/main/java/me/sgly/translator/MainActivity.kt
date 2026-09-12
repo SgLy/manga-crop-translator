@@ -7,18 +7,30 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
 
 class MainActivity : ComponentActivity() {
@@ -57,12 +69,45 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             CropTranslatorTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    SettingsScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        settingsManager = settingsManager,
+                var showSettings by remember { mutableStateOf(false) }
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    HomeScreen(
+                        onOpenSettings = { showSettings = true },
                         onStartClicked = { checkPermissionsAndStart() }
                     )
+
+                    if (showSettings) {
+                        // 0f = fully shown, 1f = slid off to the right.
+                        val progress = remember { Animatable(1f) }
+                        val scope = rememberCoroutineScope()
+                        LaunchedEffect(Unit) {
+                            progress.animateTo(0f, animationSpec = tween(durationMillis = 250))
+                        }
+                        PredictiveBackHandler(enabled = true) { progressEvents ->
+                            try {
+                                progressEvents.collect { event ->
+                                    progress.snapTo(event.progress)
+                                }
+                                showSettings = false
+                            } catch (e: CancellationException) {
+                                progress.animateTo(0f, animationSpec = tween(durationMillis = 200))
+                                throw e
+                            }
+                        }
+                        SettingsScreen(
+                            settingsManager = settingsManager,
+                            onBack = {
+                                scope.launch {
+                                    progress.animateTo(1f, animationSpec = tween(durationMillis = 250))
+                                    showSettings = false
+                                }
+                            },
+                            modifier = Modifier.graphicsLayer {
+                                translationX = size.width * progress.value
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -95,11 +140,56 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(
+    onOpenSettings: () -> Unit,
+    onStartClicked: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Manga cropping translator") },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings"
+                        )
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 24.dp)
+        ) {
+            Spacer(modifier = Modifier.weight(1f))
+            Button(
+                onClick = onStartClicked,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text(
+                    text = "Start",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    modifier: Modifier = Modifier,
     settingsManager: SettingsManager,
-    onStartClicked: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
 
@@ -111,120 +201,119 @@ fun SettingsScreen(
     var llmApiKey by remember { mutableStateOf(settingsManager.llmApiKey) }
     var llmModel by remember { mutableStateOf(settingsManager.llmModel) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Manga Translator Settings",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-
-        // VLM Settings (Vision Language Model for OCR/Understanding)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Vision Model (VLM)",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                Text(
-                    text = "Used for reading manga panels and extracting Japanese text.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                OutlinedTextField(
-                    value = vlmApiBase,
-                    onValueChange = { vlmApiBase = it; settingsManager.vlmApiBase = it },
-                    label = { Text("API Base URL") },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = vlmApiKey,
-                    onValueChange = { vlmApiKey = it; settingsManager.vlmApiKey = it },
-                    label = { Text("API Key") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = vlmModel,
-                    onValueChange = { vlmModel = it; settingsManager.vlmModel = it },
-                    label = { Text("Model") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // LLM Settings (Translation Model)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Translation Model (LLM)",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                Text(
-                    text = "Used for translating extracted Japanese text to your native language.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                OutlinedTextField(
-                    value = llmApiBase,
-                    onValueChange = { llmApiBase = it; settingsManager.llmApiBase = it },
-                    label = { Text("API Base URL") },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = llmApiKey,
-                    onValueChange = { llmApiKey = it; settingsManager.llmApiKey = it },
-                    label = { Text("API Key") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = llmModel,
-                    onValueChange = { llmModel = it; settingsManager.llmModel = it },
-                    label = { Text("Model") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Button(
-            onClick = onStartClicked,
-            modifier = Modifier.fillMaxWidth().height(56.dp)
-        ) {
-            Text(
-                "Start Translator UI",
-                style = MaterialTheme.typography.titleMedium
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
             )
         }
-        Spacer(modifier = Modifier.height(32.dp))
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp)
+        ) {
+            // ---- Image recognition model (VLM) ----
+            SectionTitle("Image Recognition Model")
+            Text(
+                text = "*Configure an LLM that supports image input",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsField(
+                    label = "API Base URL",
+                    value = vlmApiBase,
+                    onValueChange = { vlmApiBase = it; settingsManager.vlmApiBase = it }
+                )
+                SettingsField(
+                    label = "API Key",
+                    value = vlmApiKey,
+                    password = true,
+                    onValueChange = { vlmApiKey = it; settingsManager.vlmApiKey = it }
+                )
+                SettingsField(
+                    label = "Model",
+                    value = vlmModel,
+                    onValueChange = { vlmModel = it; settingsManager.vlmModel = it }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ---- Translation model (LLM) ----
+            SectionTitle("Translation Model")
+            Spacer(modifier = Modifier.height(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsField(
+                    label = "API Base URL",
+                    value = llmApiBase,
+                    onValueChange = { llmApiBase = it; settingsManager.llmApiBase = it }
+                )
+                SettingsField(
+                    label = "API Key",
+                    value = llmApiKey,
+                    password = true,
+                    onValueChange = { llmApiKey = it; settingsManager.llmApiKey = it }
+                )
+                SettingsField(
+                    label = "Model",
+                    value = llmModel,
+                    onValueChange = { llmModel = it; settingsManager.llmModel = it }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
     }
+}
+
+@Composable
+fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary
+    )
+}
+
+@Composable
+fun SettingsField(
+    label: String,
+    value: String,
+    password: Boolean = false,
+    onValueChange: (String) -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = if (label.isEmpty()) null else ({ Text(label) }),
+        singleLine = true,
+        visualTransformation = if (password && !visible) PasswordVisualTransformation() else VisualTransformation.None,
+        trailingIcon = if (password) {
+            {
+                IconButton(onClick = { visible = !visible }) {
+                    Icon(
+                        imageVector = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = null
+                    )
+                }
+            }
+        } else null,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
