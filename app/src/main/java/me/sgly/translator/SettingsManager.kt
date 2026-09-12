@@ -45,4 +45,13 @@ class SettingsManager(context: Context) {
         get() = thinkingLevels.split(Regex("[^a-zA-Z]+"))
             .filter { it.isNotBlank() }
             .ifEmpty { listOf("low", "high", "max") }
+
+    /** Last floating-button position (TOP|START gravity). -1 means "not set yet". */
+    var fabX: Int
+        get() = prefs.getInt("fabX", -1)
+        set(value) = prefs.edit().putInt("fabX", value).apply()
+
+    var fabY: Int
+        get() = prefs.getInt("fabY", -1)
+        set(value) = prefs.edit().putInt("fabY", value).apply()
 }

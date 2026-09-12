@@ -53,6 +53,7 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private lateinit var screenCaptureManager: ScreenCaptureManager
     private lateinit var overlayScreenManager: OverlayScreenManager
     private lateinit var openAIApiClient: OpenAIApiClient
+    private lateinit var settingsManager: SettingsManager
 
     private val serviceScope = CoroutineScope(Dispatchers.Main)
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -70,7 +71,8 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         createNotificationChannel()
         screenCaptureManager = ScreenCaptureManager(this)
         overlayScreenManager = OverlayScreenManager(this)
-        openAIApiClient = OpenAIApiClient(SettingsManager(this))
+        settingsManager = SettingsManager(this)
+        openAIApiClient = OpenAIApiClient(settingsManager)
 
         // FAB visibility: visible only when Idle
         serviceScope.launch {
@@ -207,8 +209,23 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
-        params.x = 0
-        params.y = 200
+
+        val metrics = resources.displayMetrics
+        val maxX = (metrics.widthPixels - containerSize).coerceAtLeast(0)
+        val maxY = (metrics.heightPixels - containerSize).coerceAtLeast(0)
+        val savedX = settingsManager.fabX
+        val savedY = settingsManager.fabY
+        if (savedX >= 0 && savedY >= 0) {
+            // Restore the last position the user dragged the button to.
+            params.x = savedX.coerceIn(0, maxX)
+            params.y = savedY.coerceIn(0, maxY)
+        } else {
+            // Default: bottom-right, just off the edges — comfortable for the right thumb.
+            val rightMargin = 0
+            val bottomMargin = (100 * density).toInt()
+            params.x = (metrics.widthPixels - containerSize - rightMargin).coerceIn(0, maxX)
+            params.y = (metrics.heightPixels - containerSize - bottomMargin).coerceIn(0, maxY)
+        }
 
         frameLayout.setOnTouchListener(object : View.OnTouchListener {
             private var initialX = 0
@@ -243,6 +260,10 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     MotionEvent.ACTION_UP -> {
                         if (!isDragging) {
                             TranslatorState.transition(AppPhase.Capturing, TransitionReason.FabClicked)
+                        } else {
+                            // Persist the dragged position so it survives restarts.
+                            settingsManager.fabX = params.x
+                            settingsManager.fabY = params.y
                         }
                         return true
                     }
