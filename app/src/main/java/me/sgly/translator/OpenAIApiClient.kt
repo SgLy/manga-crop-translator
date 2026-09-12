@@ -39,13 +39,7 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         if (apiKey.isEmpty()) throw Exception("VLM API Key is missing. Please configure it in settings.")
 
         // Generate Schema from our Data Class
-        val generator = kotlinx.schema.generator.json.ReflectionClassJsonSchemaGenerator.Default
-        val schemaJsonString = generator.generateSchemaString(OcrResult::class)
-        val baseSchema = jsonDecoder.parseToJsonElement(schemaJsonString).jsonObject
-        val parameters = buildJsonObject {
-            put("description", "提取结果")
-            baseSchema.forEach { k, v -> put(k, v) }
-        }
+        val parameters = buildToolParameters("提取结果", OcrResult::class)
 
         val requestObj = OpenAIChatRequest(
             model = model,
@@ -92,10 +86,13 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
 
         Log.d("MangaVLM", "Requesting VLM OCR: URL=$endpoint, Model=$model")
 
+        val requestJson = jsonDecoder.encodeToString(requestObj)
+        logLong("MangaVLM", "\u2192 Request body:\n" + sanitizeForLog(requestJson))
+
         val request = Request.Builder()
             .url(endpoint)
             .header("Authorization", "Bearer $apiKey")
-            .post(jsonDecoder.encodeToString(requestObj).toRequestBody(JSON))
+            .post(requestJson.toRequestBody(JSON))
             .build()
 
         client.newCall(request).execute().use { response ->
@@ -108,9 +105,11 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
             val source = response.body?.source() ?: throw Exception("Empty response body")
             val contentBuilder = java.lang.StringBuilder()
             val functionArguments = java.lang.StringBuilder()
+            val rawResponse = java.lang.StringBuilder()
 
             while (!source.exhausted()) {
                 val line = source.readUtf8Line() ?: continue
+                rawResponse.append(line).append('\n')
                 if (line.isEmpty() || !line.startsWith("data:")) continue
                 val dataStr = line.substringAfter("data:").trim()
                 if (dataStr == "[DONE]") break
@@ -147,7 +146,9 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
                 }
             }
 
+            logLong("MangaVLM", "\u2190 Raw SSE response:\n$rawResponse")
             val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
+            logLong("MangaVLM", "\u2190 Assembled final JSON:\n$finalJson")
             if (finalJson.isNotEmpty()) {
                 try {
                     val cleanJson = finalJson.trim().removePrefix("```json").removeSuffix("```").trim()
@@ -171,13 +172,7 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         if (apiKey.isEmpty()) throw Exception("LLM API Key is missing. Please configure it in settings.")
 
         // Generate Schema from our Data Class
-        val generator = kotlinx.schema.generator.json.ReflectionClassJsonSchemaGenerator.Default
-        val schemaJsonString = generator.generateSchemaString(TranslationResult::class)
-        val baseSchema = jsonDecoder.parseToJsonElement(schemaJsonString).jsonObject
-        val parameters = buildJsonObject {
-            put("description", "翻译结果")
-            baseSchema.forEach { k, v -> put(k, v) }
-        }
+        val parameters = buildToolParameters("翻译结果", TranslationResult::class)
 
         val requestObj = OpenAIChatRequest(
             model = model,
@@ -216,10 +211,13 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
 
         Log.d("MangaLLM", "Requesting LLM Translation: URL=$endpoint, Model=$model")
 
+        val requestJson = jsonDecoder.encodeToString(requestObj)
+        logLong("MangaLLM", "\u2192 Request body:\n" + sanitizeForLog(requestJson))
+
         val request = Request.Builder()
             .url(endpoint)
             .header("Authorization", "Bearer $apiKey")
-            .post(jsonDecoder.encodeToString(requestObj).toRequestBody(JSON))
+            .post(requestJson.toRequestBody(JSON))
             .build()
 
         client.newCall(request).execute().use { response ->
@@ -232,9 +230,11 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
             val source = response.body?.source() ?: throw Exception("Empty response body")
             val contentBuilder = java.lang.StringBuilder()
             val functionArguments = java.lang.StringBuilder()
+            val rawResponse = java.lang.StringBuilder()
 
             while (!source.exhausted()) {
                 val line = source.readUtf8Line() ?: continue
+                rawResponse.append(line).append('\n')
                 if (line.isEmpty() || !line.startsWith("data:")) continue
                 val dataStr = line.substringAfter("data:").trim()
                 if (dataStr == "[DONE]") break
@@ -271,7 +271,9 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
                 }
             }
 
+            logLong("MangaLLM", "\u2190 Raw SSE response:\n$rawResponse")
             val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
+            logLong("MangaLLM", "\u2190 Assembled final JSON:\n$finalJson")
             if (finalJson.isNotEmpty()) {
                 try {
                     val cleanJson = finalJson.trim().removePrefix("```json").removeSuffix("```").trim()
@@ -286,6 +288,24 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         }
     }
 
+    /** Replaces the base64 image payload with a placeholder so logcat stays readable. */
+    private fun sanitizeForLog(json: String): String =
+        json.replace(
+            Regex("data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+"),
+            "data:image/png;base64,<BASE64_OMITTED>"
+        )
+
+    /** Logs a potentially long string in chunks (logcat truncates single messages ~4000 chars). */
+    private fun logLong(tag: String, message: String) {
+        val chunkSize = 3500
+        var index = 0
+        while (index < message.length) {
+            val end = (index + chunkSize).coerceAtMost(message.length)
+            Log.d(tag, message.substring(index, end))
+            index = end
+        }
+    }
+
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val outputStream = ByteArrayOutputStream()
         // 使用 PNG 无损格式，最高识别精度
@@ -293,3 +313,50 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
     }
 }
+
+private val schemaJsonDecoder = Json { ignoreUnknownKeys = true }
+
+/**
+ * Builds an OpenAI-compatible tool `parameters` object from a Kotlin data class.
+ *
+ * kotlinx-schema emits a data-class schema containing:
+ *   - "$id": "me.sgly.translator.OcrResult"  → a *relative* URI, which OpenAI's validator
+ *     rejects with "relative URL without a base";
+ *   - nested types as "$defs" + "$ref": "#/$defs/..." (also relative references).
+ *
+ * We therefore drop $id/$schema/$defs and inline every $ref so the final schema is a plain,
+ * self-contained JSON Schema that OpenAI accepts.
+ */
+internal fun buildToolParameters(description: String, schemaClass: kotlin.reflect.KClass<*>): JsonObject {
+    val generator = kotlinx.schema.generator.json.ReflectionClassJsonSchemaGenerator.Default
+    val schemaJsonString = generator.generateSchemaString(schemaClass)
+    val root = schemaJsonDecoder.parseToJsonElement(schemaJsonString).jsonObject
+    val defs = root["\$defs"] as? JsonObject
+    return buildJsonObject {
+        put("description", description)
+        root.forEach { (key, value) ->
+            if (key == "\$id" || key == "\$schema" || key == "\$defs") return@forEach
+            put(key, inlineRefs(value, defs))
+        }
+    }
+}
+
+/** Recursively replaces `{"$ref": "#/$defs/X"}` with the referenced definition. */
+private fun inlineRefs(element: JsonElement, defs: JsonObject?): JsonElement = when (element) {
+    is JsonObject -> {
+        val ref = element["\$ref"]?.let { it as? JsonPrimitive }?.contentOrNull
+        if (ref != null && ref.startsWith("#/\$defs/") && defs != null) {
+            val target = defs[ref.removePrefix("#/\$defs/")]
+            if (target != null) inlineRefs(target, defs) else element
+        } else {
+            buildJsonObject {
+                element.forEach { (k, v) -> put(k, inlineRefs(v, defs)) }
+            }
+        }
+    }
+    is JsonArray -> buildJsonArray {
+        element.forEach { add(inlineRefs(it, defs)) }
+    }
+    else -> element
+}
+

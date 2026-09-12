@@ -27,7 +27,8 @@ data class OpenAIThinkingConfig(val type: String)
 @Serializable
 data class OpenAITool(
     val type: String,
-    val function: OpenAIFunction
+    val function: OpenAIFunction,
+    val strict: Boolean = true
 )
 
 @Serializable
