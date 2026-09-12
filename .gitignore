@@ -17,3 +17,7 @@
 .cxx
 local.properties
 plan.md
+quick-test/node_modules
+quick-test/.env
+quick-test/crop.png
+quick-test/ocr-result.json
