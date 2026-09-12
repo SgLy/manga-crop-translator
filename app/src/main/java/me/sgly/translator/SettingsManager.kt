@@ -29,4 +29,9 @@ class SettingsManager(context: Context) {
     var llmModel: String
         get() = prefs.getString("llmModel", "gpt-4o") ?: "gpt-4o"
         set(value) = prefs.edit().putString("llmModel", value).apply()
+
+    /** When true, the translation step reuses the VLM endpoint/model instead of the LLM one. */
+    var useVlmForTranslation: Boolean
+        get() = prefs.getBoolean("useVlmForTranslation", true)
+        set(value) = prefs.edit().putBoolean("useVlmForTranslation", value).apply()
 }

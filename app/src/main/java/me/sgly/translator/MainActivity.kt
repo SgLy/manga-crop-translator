@@ -201,6 +201,8 @@ fun SettingsScreen(
     var llmApiKey by remember { mutableStateOf(settingsManager.llmApiKey) }
     var llmModel by remember { mutableStateOf(settingsManager.llmModel) }
 
+    var useVlmForTranslation by remember { mutableStateOf(settingsManager.useVlmForTranslation) }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -251,28 +253,50 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ---- Translation model (LLM) ----
-            SectionTitle("Translation Model")
             Spacer(modifier = Modifier.height(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SettingsField(
-                    label = "API Base URL",
-                    value = llmApiBase,
-                    onValueChange = { llmApiBase = it; settingsManager.llmApiBase = it }
+
+            // ---- Reuse VLM for translation ----
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Also use the image recognition model for translation",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
                 )
-                SettingsField(
-                    label = "API Key",
-                    value = llmApiKey,
-                    password = true,
-                    onValueChange = { llmApiKey = it; settingsManager.llmApiKey = it }
+                Switch(
+                    checked = useVlmForTranslation,
+                    onCheckedChange = {
+                        useVlmForTranslation = it
+                        settingsManager.useVlmForTranslation = it
+                    }
                 )
-                SettingsField(
-                    label = "Model",
-                    value = llmModel,
-                    onValueChange = { llmModel = it; settingsManager.llmModel = it }
-                )
+            }
+
+            // ---- Translation model (LLM), only when not reusing the VLM ----
+            if (!useVlmForTranslation) {
+                Spacer(modifier = Modifier.height(12.dp))
+                SectionTitle("Translation Model")
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SettingsField(
+                        label = "API Base URL",
+                        value = llmApiBase,
+                        onValueChange = { llmApiBase = it; settingsManager.llmApiBase = it }
+                    )
+                    SettingsField(
+                        label = "API Key",
+                        value = llmApiKey,
+                        password = true,
+                        onValueChange = { llmApiKey = it; settingsManager.llmApiKey = it }
+                    )
+                    SettingsField(
+                        label = "Model",
+                        value = llmModel,
+                        onValueChange = { llmModel = it; settingsManager.llmModel = it }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))

@@ -163,12 +163,13 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
     }
 
     suspend fun translateText(japaneseText: String, onThinkingUpdate: suspend (String) -> Unit = {}): TranslationResult = withContext(Dispatchers.IO) {
-        val apiKey = settingsManager.llmApiKey
-        val apiBase = settingsManager.llmApiBase.trimEnd('/')
+        val useVlm = settingsManager.useVlmForTranslation
+        val apiKey = if (useVlm) settingsManager.vlmApiKey else settingsManager.llmApiKey
+        val apiBase = (if (useVlm) settingsManager.vlmApiBase else settingsManager.llmApiBase).trimEnd('/')
         val endpoint = if (apiBase.endsWith("/chat/completions")) apiBase else "$apiBase/chat/completions"
-        val model = settingsManager.llmModel
+        val model = if (useVlm) settingsManager.vlmModel else settingsManager.llmModel
 
-        if (apiKey.isEmpty()) throw Exception("LLM API Key is missing. Please configure it in settings.")
+        if (apiKey.isEmpty()) throw Exception("${if (useVlm) "VLM" else "LLM"} API Key is missing. Please configure it in settings.")
 
         // Generate Schema from our Data Class
         val parameters = buildToolParameters("翻译结果", TranslationResult::class)
