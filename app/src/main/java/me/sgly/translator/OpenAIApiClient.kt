@@ -27,7 +27,7 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
     private val JSON = "application/json; charset=utf-8".toMediaType()
     private val jsonDecoder = Json { ignoreUnknownKeys = true }
 
-    suspend fun extractTextFromImage(bitmap: Bitmap, onThinkingUpdate: suspend (String) -> Unit = {}): OcrResult = withContext(Dispatchers.IO) {
+    suspend fun extractTextFromImage(bitmap: Bitmap, thinkingEffort: String, onThinkingUpdate: suspend (String) -> Unit = {}): OcrResult = withContext(Dispatchers.IO) {
         val base64Image = bitmapToBase64(bitmap)
         Log.d("MangaVLM", "Base64 image length: ${base64Image.length} characters")
 
@@ -41,10 +41,12 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         // Generate Schema from our Data Class
         val parameters = buildToolParameters("提取结果", OcrResult::class)
 
+        val (thinking, reasoningEffort) = thinkingParams(thinkingEffort)
         val requestObj = OpenAIChatRequest(
             model = model,
             stream = true,
-            thinking = OpenAIThinkingConfig("disabled"),
+            thinking = thinking,
+            reasoningEffort = reasoningEffort,
             tools = listOf(
                 OpenAITool(
                     type = "function",
@@ -162,7 +164,7 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         }
     }
 
-    suspend fun translateText(japaneseText: String, onThinkingUpdate: suspend (String) -> Unit = {}): TranslationResult = withContext(Dispatchers.IO) {
+    suspend fun translateText(japaneseText: String, thinkingEffort: String, onThinkingUpdate: suspend (String) -> Unit = {}): TranslationResult = withContext(Dispatchers.IO) {
         val useVlm = settingsManager.useVlmForTranslation
         val apiKey = if (useVlm) settingsManager.vlmApiKey else settingsManager.llmApiKey
         val apiBase = (if (useVlm) settingsManager.vlmApiBase else settingsManager.llmApiBase).trimEnd('/')
@@ -174,10 +176,12 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         // Generate Schema from our Data Class
         val parameters = buildToolParameters("翻译结果", TranslationResult::class)
 
+        val (thinking, reasoningEffort) = thinkingParams(thinkingEffort)
         val requestObj = OpenAIChatRequest(
             model = model,
             stream = true,
-            thinking = OpenAIThinkingConfig("disabled"),
+            thinking = thinking,
+            reasoningEffort = reasoningEffort,
             tools = listOf(
                 OpenAITool(
                     type = "function",
@@ -313,6 +317,13 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
             index = end
         }
     }
+
+    /**
+     * Thinking is always on; `reasoning_effort` carries the user's effort token verbatim
+     * (e.g. "low" / "high" / "max", as configured in the thinking-strength ladder).
+     */
+    private fun thinkingParams(effort: String): Pair<OpenAIThinkingConfig, String> =
+        OpenAIThinkingConfig("enabled") to effort
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val outputStream = ByteArrayOutputStream()

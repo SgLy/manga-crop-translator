@@ -114,6 +114,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkPermissionsAndStart() {
+        // Install the parsed thinking ladder before resetting the state machine.
+        TranslatorState.setThinkingLevels(settingsManager.thinkingLevelList)
         TranslatorState.reset()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -202,6 +204,7 @@ fun SettingsScreen(
     var llmModel by remember { mutableStateOf(settingsManager.llmModel) }
 
     var useVlmForTranslation by remember { mutableStateOf(settingsManager.useVlmForTranslation) }
+    var thinkingLevels by remember { mutableStateOf(settingsManager.thinkingLevels) }
 
     Scaffold(
         modifier = modifier,
@@ -298,6 +301,21 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ---- Thinking strength ladder ----
+            SettingsField(
+                label = "Thinking Strength",
+                value = thinkingLevels,
+                onValueChange = { thinkingLevels = it; settingsManager.thinkingLevels = it }
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Separate levels with non-letters; each \"Think harder\" goes one step up.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             Spacer(modifier = Modifier.height(32.dp))
         }

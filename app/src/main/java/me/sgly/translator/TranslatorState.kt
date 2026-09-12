@@ -50,6 +50,26 @@ object TranslatorState {
     private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
     val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
 
+    // Thinking ladder: user-configured effort tokens, walked by index on each ThinkHarder.
+    private var thinkingLevels: List<String> = listOf("low", "high", "max")
+    private val _thinkingLevelIndex = MutableStateFlow(0)
+    val thinkingLevelIndex: StateFlow<Int> = _thinkingLevelIndex.asStateFlow()
+
+    /** Installs the parsed thinking ladder (from settings) and resets to the first level. */
+    fun setThinkingLevels(levels: List<String>) {
+        thinkingLevels = levels.ifEmpty { listOf("low", "high", "max") }
+        _thinkingLevelIndex.value = 0
+    }
+
+    /** Effort token for the current level, e.g. "high". */
+    fun currentThinkingEffort(): String =
+        thinkingLevels.getOrElse(_thinkingLevelIndex.value) { thinkingLevels.last() }
+
+    private fun escalateThinking() {
+        _thinkingLevelIndex.value =
+            (_thinkingLevelIndex.value + 1).coerceAtMost(thinkingLevels.lastIndex)
+    }
+
     // Raw bitmaps: not observed reactively by UI, read directly when needed
     var capturedBitmap: Bitmap? = null
     var croppedBitmap: Bitmap? = null
@@ -77,11 +97,16 @@ object TranslatorState {
         val from = _phase.value
         Log.i("TranslatorState", "$from → $to [$reason]")
         when (reason) {
+            TransitionReason.FabClicked -> {
+                // A new capture session starts: reset to the base thinking level
+                _thinkingLevelIndex.value = 0
+            }
             TransitionReason.ThinkHarder -> {
-                // Re-run OCR with same crop: clear both results
+                // Re-run OCR with same crop: clear both results and think harder
                 _ocrResult.value = null
                 _translationResult.value = null
                 _errorText.value = ""
+                escalateThinking()
             }
             TransitionReason.Retry -> {
                 _errorText.value = ""
@@ -99,6 +124,7 @@ object TranslatorState {
                 _ocrResult.value = null
                 _translationResult.value = null
                 _errorText.value = ""
+                _thinkingLevelIndex.value = 0
             }
             else -> {}
         }
@@ -114,6 +140,7 @@ object TranslatorState {
         _ocrResult.value = null
         _translationResult.value = null
         _errorText.value = ""
+        _thinkingLevelIndex.value = 0
         _phase.value = AppPhase.Idle
         _lastTransition.tryEmit(Transition(from, AppPhase.Idle, TransitionReason.Reset))
     }

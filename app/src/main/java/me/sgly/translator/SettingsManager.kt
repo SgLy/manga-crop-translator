@@ -34,4 +34,15 @@ class SettingsManager(context: Context) {
     var useVlmForTranslation: Boolean
         get() = prefs.getBoolean("useVlmForTranslation", true)
         set(value) = prefs.edit().putBoolean("useVlmForTranslation", value).apply()
+
+    /** Raw thinking-strength string, split on non-letters. */
+    var thinkingLevels: String
+        get() = prefs.getString("thinkingLevels", "low,high,max") ?: "low,high,max"
+        set(value) = prefs.edit().putString("thinkingLevels", value).apply()
+
+    /** Parsed thinking ladder, e.g. "low,high,max" → [low, high, max]. */
+    val thinkingLevelList: List<String>
+        get() = thinkingLevels.split(Regex("[^a-zA-Z]+"))
+            .filter { it.isNotBlank() }
+            .ifEmpty { listOf("low", "high", "max") }
 }

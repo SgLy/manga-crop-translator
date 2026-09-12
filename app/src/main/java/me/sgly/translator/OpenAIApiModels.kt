@@ -12,7 +12,8 @@ data class OpenAIChatRequest(
     val tools: List<OpenAITool>? = null,
     @SerialName("tool_choice") val toolChoice: String? = null,
     val stream: Boolean? = null,
-    val thinking: OpenAIThinkingConfig? = null
+    val thinking: OpenAIThinkingConfig? = null,
+    @SerialName("reasoning_effort") val reasoningEffort: String? = null
 )
 
 @Serializable

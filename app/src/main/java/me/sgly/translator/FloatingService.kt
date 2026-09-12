@@ -112,7 +112,7 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     }
                     AppPhase.Recognizing -> {
                         try {
-                            val result = openAIApiClient.extractTextFromImage(TranslatorState.croppedBitmap!!) { }
+                            val result = openAIApiClient.extractTextFromImage(TranslatorState.croppedBitmap!!, TranslatorState.currentThinkingEffort()) { }
                             if (result.blocks.isEmpty()) {
                                 TranslatorState.setErrorText("OCR returned empty text. Please check if your VLM endpoint and model support image inputs.")
                                 TranslatorState.transition(AppPhase.OcrError, TransitionReason.OcrFailed)
@@ -129,7 +129,7 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                         try {
                             val prettyJson = kotlinx.serialization.json.Json { prettyPrint = true }
                             val ocrText = prettyJson.encodeToString(OcrResult.serializer(), TranslatorState.ocrResult.value!!)
-                            val result = openAIApiClient.translateText(ocrText) { }
+                            val result = openAIApiClient.translateText(ocrText, TranslatorState.currentThinkingEffort()) { }
                             TranslatorState.setTranslationResult(result)
                             TranslatorState.transition(AppPhase.Done, TransitionReason.LlmSuccess)
                         } catch (e: Exception) {
