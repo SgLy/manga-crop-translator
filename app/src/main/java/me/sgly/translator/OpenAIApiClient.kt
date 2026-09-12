@@ -29,14 +29,14 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
 
     suspend fun extractTextFromImage(bitmap: Bitmap, thinkingEffort: String, onThinkingUpdate: suspend (String) -> Unit = {}): OcrResult = withContext(Dispatchers.IO) {
         val base64Image = bitmapToBase64(bitmap)
-        Log.d("MangaVLM", "Base64 image length: ${base64Image.length} characters")
+        Log.d("MangaVisualModel", "Base64 image length: ${base64Image.length} characters")
 
-        val apiKey = settingsManager.vlmApiKey
-        val apiBase = settingsManager.vlmApiBase.trimEnd('/')
+        val apiKey = settingsManager.visualModelApiKey
+        val apiBase = settingsManager.visualModelApiBase.trimEnd('/')
         val endpoint = if (apiBase.endsWith("/chat/completions")) apiBase else "$apiBase/chat/completions"
-        val model = settingsManager.vlmModel
+        val model = settingsManager.visualModel
 
-        if (apiKey.isEmpty()) throw Exception("VLM API Key is missing. Please configure it in settings.")
+        if (apiKey.isEmpty()) throw Exception("VisualModel API Key is missing. Please configure it in settings.")
 
         // Generate Schema from our Data Class
         val parameters = buildToolParameters("提取结果", OcrResult::class)
@@ -85,10 +85,10 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
             )
         )
 
-        Log.d("MangaVLM", "Requesting VLM OCR: URL=$endpoint, Model=$model")
+        Log.d("MangaVisualModel", "Requesting VisualModel OCR: URL=$endpoint, Model=$model")
 
         val requestJson = jsonDecoder.encodeToString(requestObj)
-        logLong("MangaVLM", "\u2192 Request body:\n" + sanitizeForLog(requestJson))
+        logLong("MangaVisualModel", "\u2192 Request body:\n" + sanitizeForLog(requestJson))
 
         val request = Request.Builder()
             .url(endpoint)
@@ -99,8 +99,8 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: ""
-                Log.e("MangaVLM", "API Error Response: ${response.code} - $errorBody")
-                throw Exception("VLM Request Failed: ${response.code}\n$errorBody")
+                Log.e("MangaVisualModel", "API Error Response: ${response.code} - $errorBody")
+                throw Exception("VisualModel Request Failed: ${response.code}\n$errorBody")
             }
 
             val source = response.body?.source() ?: throw Exception("Empty response body")
@@ -147,31 +147,31 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
                 }
             }
 
-            logLong("MangaVLM", "\u2190 Raw SSE response:\n$rawResponse")
+            logLong("MangaVisualModel", "\u2190 Raw SSE response:\n$rawResponse")
             val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
-            logLong("MangaVLM", "\u2190 Assembled final JSON:\n$finalJson")
+            logLong("MangaVisualModel", "\u2190 Assembled final JSON:\n$finalJson")
             if (finalJson.isNotEmpty()) {
                 try {
                     val cleanJson = finalJson.trim().removePrefix("```json").removeSuffix("```").trim()
                     return@withContext jsonDecoder.decodeFromString<OcrResult>(cleanJson)
                 } catch (e: Exception) {
-                    Log.e("MangaVLM", "Failed to parse JSON: $finalJson", e)
+                    Log.e("MangaVisualModel", "Failed to parse JSON: $finalJson", e)
                     throw Exception("Failed to parse JSON: ${e.message}\n$finalJson")
                 }
             }
 
-            throw Exception("No valid tool calls or content found in VLM response")
+            throw Exception("No valid tool calls or content found in VisualModel response")
         }
     }
 
     suspend fun translateText(japaneseText: String, thinkingEffort: String, onThinkingUpdate: suspend (String) -> Unit = {}): TranslationResult = withContext(Dispatchers.IO) {
-        val useVlm = settingsManager.useVlmForTranslation
-        val apiKey = if (useVlm) settingsManager.vlmApiKey else settingsManager.llmApiKey
-        val apiBase = (if (useVlm) settingsManager.vlmApiBase else settingsManager.llmApiBase).trimEnd('/')
+        val useVisualModel = settingsManager.useVisualModelForTranslation
+        val apiKey = if (useVisualModel) settingsManager.visualModelApiKey else settingsManager.translateModelApiKey
+        val apiBase = (if (useVisualModel) settingsManager.visualModelApiBase else settingsManager.translateModelApiBase).trimEnd('/')
         val endpoint = if (apiBase.endsWith("/chat/completions")) apiBase else "$apiBase/chat/completions"
-        val model = if (useVlm) settingsManager.vlmModel else settingsManager.llmModel
+        val model = if (useVisualModel) settingsManager.visualModel else settingsManager.translateModel
 
-        if (apiKey.isEmpty()) throw Exception("${if (useVlm) "VLM" else "LLM"} API Key is missing. Please configure it in settings.")
+        if (apiKey.isEmpty()) throw Exception("${if (useVisualModel) "VisualModel" else "TranslateModel"} API Key is missing. Please configure it in settings.")
 
         // Generate Schema from our Data Class
         val parameters = buildToolParameters("翻译结果", TranslationResult::class)
@@ -221,10 +221,10 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
             )
         )
 
-        Log.d("MangaLLM", "Requesting LLM Translation: URL=$endpoint, Model=$model")
+        Log.d("MangaTranslateModel", "Requesting TranslateModel Translation: URL=$endpoint, Model=$model")
 
         val requestJson = jsonDecoder.encodeToString(requestObj)
-        logLong("MangaLLM", "\u2192 Request body:\n" + sanitizeForLog(requestJson))
+        logLong("MangaTranslateModel", "\u2192 Request body:\n" + sanitizeForLog(requestJson))
 
         val request = Request.Builder()
             .url(endpoint)
@@ -235,8 +235,8 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: ""
-                Log.e("MangaLLM", "API Error Response: ${response.code} - $errorBody")
-                throw Exception("LLM Translation Failed: ${response.code}\n$errorBody")
+                Log.e("MangaTranslateModel", "API Error Response: ${response.code} - $errorBody")
+                throw Exception("TranslateModel Translation Failed: ${response.code}\n$errorBody")
             }
 
             val source = response.body?.source() ?: throw Exception("Empty response body")
@@ -283,20 +283,20 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
                 }
             }
 
-            logLong("MangaLLM", "\u2190 Raw SSE response:\n$rawResponse")
+            logLong("MangaTranslateModel", "\u2190 Raw SSE response:\n$rawResponse")
             val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
-            logLong("MangaLLM", "\u2190 Assembled final JSON:\n$finalJson")
+            logLong("MangaTranslateModel", "\u2190 Assembled final JSON:\n$finalJson")
             if (finalJson.isNotEmpty()) {
                 try {
                     val cleanJson = finalJson.trim().removePrefix("```json").removeSuffix("```").trim()
                     return@withContext jsonDecoder.decodeFromString<TranslationResult>(cleanJson)
                 } catch (e: Exception) {
-                    Log.e("MangaLLM", "Failed to parse JSON: $finalJson", e)
+                    Log.e("MangaTranslateModel", "Failed to parse JSON: $finalJson", e)
                     throw Exception("Failed to parse JSON: ${e.message}\n$finalJson")
                 }
             }
 
-            throw Exception("No valid tool calls or content found in LLM response")
+            throw Exception("No valid tool calls or content found in TranslateModel response")
         }
     }
 

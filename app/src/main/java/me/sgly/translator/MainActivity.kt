@@ -196,15 +196,15 @@ fun SettingsScreen(
 ) {
     val scrollState = rememberScrollState()
 
-    var vlmApiBase by remember { mutableStateOf(settingsManager.vlmApiBase) }
-    var vlmApiKey by remember { mutableStateOf(settingsManager.vlmApiKey) }
-    var vlmModel by remember { mutableStateOf(settingsManager.vlmModel) }
+    var visualModelApiBase by remember { mutableStateOf(settingsManager.visualModelApiBase) }
+    var visualModelApiKey by remember { mutableStateOf(settingsManager.visualModelApiKey) }
+    var visualModel by remember { mutableStateOf(settingsManager.visualModel) }
 
-    var llmApiBase by remember { mutableStateOf(settingsManager.llmApiBase) }
-    var llmApiKey by remember { mutableStateOf(settingsManager.llmApiKey) }
-    var llmModel by remember { mutableStateOf(settingsManager.llmModel) }
+    var translateModelApiBase by remember { mutableStateOf(settingsManager.translateModelApiBase) }
+    var translateModelApiKey by remember { mutableStateOf(settingsManager.translateModelApiKey) }
+    var translateModel by remember { mutableStateOf(settingsManager.translateModel) }
 
-    var useVlmForTranslation by remember { mutableStateOf(settingsManager.useVlmForTranslation) }
+    var useVisualModelForTranslation by remember { mutableStateOf(settingsManager.useVisualModelForTranslation) }
     var thinkingLevels by remember { mutableStateOf(settingsManager.thinkingLevels) }
 
     Scaffold(
@@ -230,10 +230,10 @@ fun SettingsScreen(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 24.dp)
         ) {
-            // ---- Image recognition model (VLM) ----
+            // ---- Image recognition model (VisualModel) ----
             SectionTitle(stringResource(R.string.image_recognition_model))
             Text(
-                text = stringResource(R.string.vlm_hint),
+                text = stringResource(R.string.visual_model_hint),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -241,64 +241,64 @@ fun SettingsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingsField(
                     label = stringResource(R.string.label_base_url),
-                    value = vlmApiBase,
-                    onValueChange = { vlmApiBase = it; settingsManager.vlmApiBase = it }
+                    value = visualModelApiBase,
+                    onValueChange = { visualModelApiBase = it; settingsManager.visualModelApiBase = it }
                 )
                 SettingsField(
                     label = stringResource(R.string.label_api_key),
-                    value = vlmApiKey,
+                    value = visualModelApiKey,
                     password = true,
-                    onValueChange = { vlmApiKey = it; settingsManager.vlmApiKey = it }
+                    onValueChange = { visualModelApiKey = it; settingsManager.visualModelApiKey = it }
                 )
                 SettingsField(
                     label = stringResource(R.string.label_model),
-                    value = vlmModel,
-                    onValueChange = { vlmModel = it; settingsManager.vlmModel = it }
+                    value = visualModel,
+                    onValueChange = { visualModel = it; settingsManager.visualModel = it }
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ---- Reuse VLM for translation ----
+            // ---- Reuse VisualModel for translation ----
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = stringResource(R.string.use_vlm_for_translation),
+                    text = stringResource(R.string.use_visual_model_for_translation),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f)
                 )
                 Switch(
-                    checked = useVlmForTranslation,
+                    checked = useVisualModelForTranslation,
                     onCheckedChange = {
-                        useVlmForTranslation = it
-                        settingsManager.useVlmForTranslation = it
+                        useVisualModelForTranslation = it
+                        settingsManager.useVisualModelForTranslation = it
                     }
                 )
             }
 
-            // ---- Translation model (LLM), only when not reusing the VLM ----
-            if (!useVlmForTranslation) {
+            // ---- Translation model (TranslateModel), only when not reusing the VisualModel ----
+            if (!useVisualModelForTranslation) {
                 Spacer(modifier = Modifier.height(12.dp))
                 SectionTitle(stringResource(R.string.translation_model))
                 Spacer(modifier = Modifier.height(12.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SettingsField(
                         label = stringResource(R.string.label_base_url),
-                        value = llmApiBase,
-                        onValueChange = { llmApiBase = it; settingsManager.llmApiBase = it }
+                        value = translateModelApiBase,
+                        onValueChange = { translateModelApiBase = it; settingsManager.translateModelApiBase = it }
                     )
                     SettingsField(
                         label = stringResource(R.string.label_api_key),
-                        value = llmApiKey,
+                        value = translateModelApiKey,
                         password = true,
-                        onValueChange = { llmApiKey = it; settingsManager.llmApiKey = it }
+                        onValueChange = { translateModelApiKey = it; settingsManager.translateModelApiKey = it }
                     )
                     SettingsField(
                         label = stringResource(R.string.label_model),
-                        value = llmModel,
-                        onValueChange = { llmModel = it; settingsManager.llmModel = it }
+                        value = translateModel,
+                        onValueChange = { translateModel = it; settingsManager.translateModel = it }
                     )
                 }
             }

@@ -47,13 +47,13 @@ class ResultActivity : ComponentActivity() {
                 val ocrStatus = when (phase) {
                     AppPhase.Recognizing -> StepUiStatus.Loading
                     AppPhase.OcrError -> StepUiStatus.Error
-                    AppPhase.Parsing, AppPhase.Done, AppPhase.LlmError -> StepUiStatus.Done
+                    AppPhase.Parsing, AppPhase.Done, AppPhase.TranslateError -> StepUiStatus.Done
                     else -> StepUiStatus.Idle
                 }
-                val llmStatus = when (phase) {
+                val translateStatus = when (phase) {
                     AppPhase.Parsing -> StepUiStatus.Loading
                     AppPhase.Done -> StepUiStatus.Done
-                    AppPhase.LlmError -> StepUiStatus.Error
+                    AppPhase.TranslateError -> StepUiStatus.Error
                     else -> StepUiStatus.Idle
                 }
 
@@ -93,14 +93,14 @@ class ResultActivity : ComponentActivity() {
                                 if (phase != AppPhase.Done) {
                                     StepRow(label = stringResource(R.string.step_recognize), status = ocrStatus)
 
-                                    // LLM row visible after OCR phase
+                                    // TranslateModel row visible after OCR phase
                                     if (phase != AppPhase.Recognizing && phase != AppPhase.OcrError) {
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        StepRow(label = stringResource(R.string.step_parse), status = llmStatus)
+                                        StepRow(label = stringResource(R.string.step_parse), status = translateStatus)
                                     }
 
                                     // Error detail
-                                    if ((phase == AppPhase.OcrError || phase == AppPhase.LlmError) && errorText.isNotEmpty()) {
+                                    if ((phase == AppPhase.OcrError || phase == AppPhase.TranslateError) && errorText.isNotEmpty()) {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(
                                             text = errorText,
@@ -127,14 +127,14 @@ class ResultActivity : ComponentActivity() {
                                 }
                             }
 
-                            // Fixed bottom bar: show in Done/OcrError/LlmError phases
-                            if (phase == AppPhase.Done || phase == AppPhase.OcrError || phase == AppPhase.LlmError) {
+                            // Fixed bottom bar: show in Done/OcrError/TranslateError phases
+                            if (phase == AppPhase.Done || phase == AppPhase.OcrError || phase == AppPhase.TranslateError) {
                                 BottomActionBar(
                                     phase = phase,
                                     hasSelection = selectedIndices.isNotEmpty(),
                                     onDismiss = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
                                     onRetry = {
-                                        val nextPhase = if (phase == AppPhase.LlmError) AppPhase.Parsing else AppPhase.Recognizing
+                                        val nextPhase = if (phase == AppPhase.TranslateError) AppPhase.Parsing else AppPhase.Recognizing
                                         TranslatorState.transition(nextPhase, TransitionReason.Retry)
                                     },
                                     onThinkHarder = { TranslatorState.transition(AppPhase.Recognizing, TransitionReason.ThinkHarder) },
@@ -346,7 +346,7 @@ fun BottomActionBar(
                     }
                 }
             }
-            AppPhase.OcrError, AppPhase.LlmError -> {
+            AppPhase.OcrError, AppPhase.TranslateError -> {
                 Button(onClick = onRetry) {
                     Text(stringResource(R.string.action_retry))
                 }

@@ -116,7 +116,7 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                         try {
                             val result = openAIApiClient.extractTextFromImage(TranslatorState.croppedBitmap!!, TranslatorState.currentThinkingEffort()) { }
                             if (result.blocks.isEmpty()) {
-                                TranslatorState.setErrorText("OCR returned empty text. Please check if your VLM endpoint and model support image inputs.")
+                                TranslatorState.setErrorText("OCR returned empty text. Please check if your VisualModel endpoint and model support image inputs.")
                                 TranslatorState.transition(AppPhase.OcrError, TransitionReason.OcrFailed)
                             } else {
                                 TranslatorState.setOcrResult(result)
@@ -133,13 +133,13 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             val ocrText = prettyJson.encodeToString(OcrResult.serializer(), TranslatorState.ocrResult.value!!)
                             val result = openAIApiClient.translateText(ocrText, TranslatorState.currentThinkingEffort()) { }
                             TranslatorState.setTranslationResult(result)
-                            TranslatorState.transition(AppPhase.Done, TransitionReason.LlmSuccess)
+                            TranslatorState.transition(AppPhase.Done, TransitionReason.TranslateSuccess)
                         } catch (e: Exception) {
                             TranslatorState.setErrorText("Error: ${e.message}")
-                            TranslatorState.transition(AppPhase.LlmError, TransitionReason.LlmFailed)
+                            TranslatorState.transition(AppPhase.TranslateError, TransitionReason.TranslateFailed)
                         }
                     }
-                    else -> { /* Idle/Done/OcrError/LlmError: UI handles these */ }
+                    else -> { /* Idle/Done/OcrError/TranslateError: UI handles these */ }
                 }
             }
         }

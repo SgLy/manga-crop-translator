@@ -14,10 +14,10 @@ enum class AppPhase {
     Capturing,   // FAB hidden, waiting for screen frame
     Cropping,    // Crop overlay visible, user selecting region
     Recognizing, // Result sheet open, OCR in progress
-    Parsing,     // Result sheet open, LLM in progress
+    Parsing,     // Result sheet open, TranslateModel in progress
     Done,        // Result sheet open, both steps complete
     OcrError,    // Result sheet open, OCR failed
-    LlmError     // Result sheet open, LLM failed (OCR result preserved)
+    TranslateError     // Result sheet open, TranslateModel failed (OCR result preserved)
 }
 
 enum class TransitionReason {
@@ -28,11 +28,11 @@ enum class TransitionReason {
     CropCancelled, // Cropping → Idle
     OcrSuccess,    // Recognizing → Parsing
     OcrFailed,     // Recognizing → OcrError
-    LlmSuccess,    // Parsing → Done
-    LlmFailed,     // Parsing → LlmError
+    TranslateSuccess,    // Parsing → Done
+    TranslateFailed,     // Parsing → TranslateError
     ThinkHarder,   // Done → Recognizing (re-run everything, same crop)
-    Retry,         // OcrError → Recognizing; LlmError → Parsing
-    Dismiss,       // Done/OcrError/LlmError → Idle
+    Retry,         // OcrError → Recognizing; TranslateError → Parsing
+    Dismiss,       // Done/OcrError/TranslateError → Idle
     Reset          // any → Idle (triggered from MainActivity on fresh start)
 }
 
@@ -113,7 +113,7 @@ object TranslatorState {
                 _translationResult.value = null
                 // OcrError retry re-runs OCR: also clear ocrResult
                 if (from == AppPhase.OcrError) _ocrResult.value = null
-                // LlmError retry preserves ocrResult (only re-runs LLM)
+                // TranslateError retry preserves ocrResult (only re-runs TranslateModel)
             }
             TransitionReason.Dismiss,
             TransitionReason.CropCancelled,

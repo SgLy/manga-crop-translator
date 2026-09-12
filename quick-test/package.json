@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "vlm": "node test.mjs vlm",
-    "llm": "node test.mjs llm"
+    "visual": "node test.mjs visual",
+    "translate": "node test.mjs translate"
   },
   "dependencies": {
     "openai": "^6.45.0"

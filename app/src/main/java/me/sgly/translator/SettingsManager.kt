@@ -6,34 +6,34 @@ import android.content.SharedPreferences
 class SettingsManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("api_settings", Context.MODE_PRIVATE)
 
-    var vlmApiBase: String
-        get() = prefs.getString("vlmApiBase", "https://api.openai.com/v1") ?: "https://api.openai.com/v1"
-        set(value) = prefs.edit().putString("vlmApiBase", value).apply()
+    var visualModelApiBase: String
+        get() = prefs.getString("visualModelApiBase", "https://api.openai.com/v1") ?: "https://api.openai.com/v1"
+        set(value) = prefs.edit().putString("visualModelApiBase", value).apply()
 
-    var vlmApiKey: String
-        get() = prefs.getString("vlmApiKey", "") ?: ""
-        set(value) = prefs.edit().putString("vlmApiKey", value).apply()
+    var visualModelApiKey: String
+        get() = prefs.getString("visualModelApiKey", "") ?: ""
+        set(value) = prefs.edit().putString("visualModelApiKey", value).apply()
 
-    var vlmModel: String
-        get() = prefs.getString("vlmModel", "gpt-4o") ?: "gpt-4o"
-        set(value) = prefs.edit().putString("vlmModel", value).apply()
+    var visualModel: String
+        get() = prefs.getString("visualModel", "gpt-4o") ?: "gpt-4o"
+        set(value) = prefs.edit().putString("visualModel", value).apply()
 
-    var llmApiBase: String
-        get() = prefs.getString("llmApiBase", "https://api.openai.com/v1") ?: "https://api.openai.com/v1"
-        set(value) = prefs.edit().putString("llmApiBase", value).apply()
+    var translateModelApiBase: String
+        get() = prefs.getString("translateModelApiBase", "https://api.openai.com/v1") ?: "https://api.openai.com/v1"
+        set(value) = prefs.edit().putString("translateModelApiBase", value).apply()
 
-    var llmApiKey: String
-        get() = prefs.getString("llmApiKey", "") ?: ""
-        set(value) = prefs.edit().putString("llmApiKey", value).apply()
+    var translateModelApiKey: String
+        get() = prefs.getString("translateModelApiKey", "") ?: ""
+        set(value) = prefs.edit().putString("translateModelApiKey", value).apply()
 
-    var llmModel: String
-        get() = prefs.getString("llmModel", "gpt-4o") ?: "gpt-4o"
-        set(value) = prefs.edit().putString("llmModel", value).apply()
+    var translateModel: String
+        get() = prefs.getString("translateModel", "gpt-4o") ?: "gpt-4o"
+        set(value) = prefs.edit().putString("translateModel", value).apply()
 
-    /** When true, the translation step reuses the VLM endpoint/model instead of the LLM one. */
-    var useVlmForTranslation: Boolean
-        get() = prefs.getBoolean("useVlmForTranslation", true)
-        set(value) = prefs.edit().putBoolean("useVlmForTranslation", value).apply()
+    /** When true, the translation step reuses the VisualModel endpoint/model instead of the TranslateModel one. */
+    var useVisualModelForTranslation: Boolean
+        get() = prefs.getBoolean("useVisualModelForTranslation", true)
+        set(value) = prefs.edit().putBoolean("useVisualModelForTranslation", value).apply()
 
     /** Raw thinking-strength string, split on non-letters. */
     var thinkingLevels: String

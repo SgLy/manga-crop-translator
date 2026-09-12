@@ -1,7 +1,7 @@
 // ============================================================
 // quick-test/test.mjs — Manga Translator Prompt 快速调优脚本
-// 用法: node test.mjs vlm    (测试 VLM OCR)
-//       node test.mjs llm    (测试 LLM 翻译)
+// 用法: node test.mjs visual    (测试 VisualModel OCR)
+//       node test.mjs translate    (测试 TranslateModel 翻译)
 // 改完下面的 prompt 后直接重新运行即可看效果
 // ============================================================
 
@@ -31,7 +31,7 @@ loadEnv(path.join(__dirname, ".env"));
 // 🎨 下面两个 prompt 就是你要调优的对象，改完直接重新运行！
 // ============================================================
 
-const VLM_SYSTEM_PROMPT = [
+const VISUAL_MODEL_SYSTEM_PROMPT = [
   "你是一个专门用于读取日文漫画中的文本块的 OCR 专家系统。下面输入的图片是一页漫画中的一小部分，请严格按照以下的要求，结构化地提取文本：",
   "- 按照两级结构来输出结果，第一级为一个气泡（一个文字块），第二级为气泡内的一列或一行（取决于竖排或横排）；",
   "- 如果图片中能看到气泡的边框或轮廓，就根据气泡的边框来判断气泡。如果看不到边框，就把紧贴在一起的几列或者几行视为一个文字块。有时候，两个气泡可能重叠，此时也应按照文字块来划分；",
@@ -41,7 +41,7 @@ const VLM_SYSTEM_PROMPT = [
   "调用工具 `submit_ocr_result` 来提交你的读取结果，无需返回任何内容作为回复。",
 ].join("\n");
 
-const LLM_SYSTEM_PROMPT = [
+const TRANSLATE_MODEL_SYSTEM_PROMPT = [
   "你是一个专业的日语语言学专家，同时非常了解 ACG 文化，阅读过大量日本漫画。接下来，你需要分析结构化的日语对话文本，对其进行词级解析和整句翻译。依次完成以下两个任务，并将结果放入工具调用中：",
   "",
   "一. 重点词汇解析：",
@@ -133,16 +133,16 @@ async function streamResponse(resp) {
 }
 
 // ============================================================
-// VLM OCR Test — 对应 OpenAIApiClient.extractTextFromImage()
+// VisualModel OCR Test — 对应 OpenAIApiClient.extractTextFromImage()
 // ============================================================
-async function testVLM() {
-  const apiKey = process.env.VLM_API_KEY;
-  const apiBase = process.env.VLM_API_BASE;
-  const model = process.env.VLM_MODEL;
-  const thinkingVal = process.env.VLM_THINKING || "disabled";
+async function testVisualModel() {
+  const apiKey = process.env.VISUAL_MODEL_API_KEY;
+  const apiBase = process.env.VISUAL_MODEL_API_BASE;
+  const model = process.env.VISUAL_MODEL_NAME;
+  const thinkingVal = process.env.VISUAL_MODEL_THINKING || "disabled";
 
   if (!apiKey || apiKey === "sk-your-key-here") {
-    console.error("❌ 请先在 .env 中配置 VLM_API_KEY");
+    console.error("❌ 请先在 .env 中配置 VISUAL_MODEL_API_KEY");
     process.exit(1);
   }
 
@@ -159,13 +159,13 @@ async function testVLM() {
   const client = new OpenAI({ apiKey, baseURL: apiBase });
   const thinkingConfig = buildThinkingConfig(thinkingVal);
 
-  console.log(`\n🚀 VLM OCR Test`);
+  console.log(`\n🚀 VisualModel OCR Test`);
   console.log(`   API: ${apiBase}`);
   console.log(`   Model: ${model}`);
   console.log(`   Thinking: ${thinkingVal}`);
   console.log(`   Image: crop.png (${(imageBuffer.length / 1024).toFixed(1)} KB)`);
   console.log(`\n--- System Prompt ---`);
-  console.log(VLM_SYSTEM_PROMPT);
+  console.log(VISUAL_MODEL_SYSTEM_PROMPT);
   console.log(`--- Sending request... ---`);
 
   const startTime = Date.now();
@@ -176,7 +176,7 @@ async function testVLM() {
       stream: true,
       ...thinkingConfig,
       messages: [
-        { role: "system", content: VLM_SYSTEM_PROMPT },
+        { role: "system", content: VISUAL_MODEL_SYSTEM_PROMPT },
         {
           role: "user",
           content: [
@@ -241,10 +241,10 @@ async function testVLM() {
         });
       }
 
-      // 自动写入 ocr-result.json，方便直接跑 llm 测试
+      // 自动写入 ocr-result.json，方便直接跑 translate 测试
       const resultPath = path.join(__dirname, "ocr-result.json");
       fs.writeFileSync(resultPath, JSON.stringify(parsed, null, 2), "utf-8");
-      console.log(`\n📄 已写入 ocr-result.json → 可直接 node test.mjs llm`);
+      console.log(`\n📄 已写入 ocr-result.json → 可直接 node test.mjs translate`);
     } catch {
       console.log(`\n⚠️ 无法解析为 JSON，请检查 prompt 或模型输出`);
     }
@@ -258,16 +258,16 @@ async function testVLM() {
 }
 
 // ============================================================
-// LLM Translation Test — 对应 OpenAIApiClient.translateJapanese()
+// TranslateModel Translation Test — 对应 OpenAIApiClient.translateJapanese()
 // ============================================================
-async function testLLM() {
-  const apiKey = process.env.LLM_API_KEY;
-  const apiBase = process.env.LLM_API_BASE;
-  const model = process.env.LLM_MODEL;
-  const thinkingVal = process.env.LLM_THINKING || "enabled";
+async function testTranslateModel() {
+  const apiKey = process.env.TRANSLATE_MODEL_API_KEY;
+  const apiBase = process.env.TRANSLATE_MODEL_API_BASE;
+  const model = process.env.TRANSLATE_MODEL_NAME;
+  const thinkingVal = process.env.TRANSLATE_MODEL_THINKING || "enabled";
 
   if (!apiKey || apiKey === "sk-your-key-here") {
-    console.error("❌ 请先在 .env 中配置 LLM_API_KEY");
+    console.error("❌ 请先在 .env 中配置 TRANSLATE_MODEL_API_KEY");
     process.exit(1);
   }
 
@@ -288,7 +288,7 @@ async function testLLM() {
       japaneseText = fs.readFileSync(defaultPath, "utf-8").trim();
       console.log(`📄 从 ocr-result.json 读取`);
     } else {
-      console.error("❌ 请提供日语文本：node test.mjs llm <文本或文件路径>");
+      console.error("❌ 请提供日语文本：node test.mjs translate <文本或文件路径>");
       console.error("   或者创建 quick-test/ocr-result.json 放 OcrResult JSON");
       process.exit(1);
     }
@@ -297,14 +297,14 @@ async function testLLM() {
   const client = new OpenAI({ apiKey, baseURL: apiBase });
   const thinkingConfig = buildThinkingConfig(thinkingVal);
 
-  console.log(`\n🚀 LLM Translation Test`);
+  console.log(`\n🚀 TranslateModel Translation Test`);
   console.log(`   API: ${apiBase}`);
   console.log(`   Model: ${model}`);
   console.log(`   Thinking: ${thinkingVal}`);
   console.log(`\n--- Input ---`);
   console.log(japaneseText.slice(0, 500) + (japaneseText.length > 500 ? "..." : ""));
   console.log(`\n--- System Prompt ---`);
-  console.log(LLM_SYSTEM_PROMPT);
+  console.log(TRANSLATE_MODEL_SYSTEM_PROMPT);
   console.log(`--- Sending request... ---`);
 
   const startTime = Date.now();
@@ -315,7 +315,7 @@ async function testLLM() {
       stream: true,
       ...thinkingConfig,
       messages: [
-        { role: "system", content: LLM_SYSTEM_PROMPT },
+        { role: "system", content: TRANSLATE_MODEL_SYSTEM_PROMPT },
         { role: "user", content: japaneseText },
       ],
       tools: [
@@ -414,14 +414,14 @@ async function testLLM() {
 // ============================================================
 const mode = process.argv[2];
 
-if (mode === "vlm") {
-  await testVLM();
-} else if (mode === "llm") {
-  await testLLM();
+if (mode === "visual") {
+  await testVisualModel();
+} else if (mode === "translate") {
+  await testTranslateModel();
 } else {
   console.log("用法:");
-  console.log("  node test.mjs vlm             测试 VLM OCR（读取 crop.png）");
-  console.log("  node test.mjs llm             测试 LLM 翻译（读取 ocr-result.json）");
-  console.log("  node test.mjs llm \"日本語\"   测试 LLM 翻译（传入文本）");
+  console.log("  node test.mjs visual             测试 VisualModel OCR（读取 crop.png）");
+  console.log("  node test.mjs translate             测试 TranslateModel 翻译（读取 ocr-result.json）");
+  console.log("  node test.mjs translate \"日本語\"   测试 TranslateModel 翻译（传入文本）");
 }
 

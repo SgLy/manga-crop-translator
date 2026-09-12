@@ -7,11 +7,11 @@
     <string name="start">开始</string>
 
     <string name="image_recognition_model">图片识别模型</string>
-    <string name="vlm_hint">*配置支持图片输入的 LLM</string>
+    <string name="visual_model_hint">*配置支持图片输入的 LLM</string>
     <string name="label_base_url">API 地址</string>
     <string name="label_api_key">API 密钥</string>
     <string name="label_model">模型</string>
-    <string name="use_vlm_for_translation">同时使用图片识别模型进行翻译</string>
+    <string name="use_visual_model_for_translation">同时使用图片识别模型进行翻译</string>
     <string name="translation_model">翻译模型</string>
     <string name="thinking_strength">思考强度</string>
     <string name="thinking_strength_hint">以非英文字母分隔，每次「再想想」依次递增</string>
