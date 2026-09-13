@@ -16,6 +16,10 @@
     <string name="thinking_strength">思考强度</string>
     <string name="thinking_strength_hint">以非英文字母分隔，每次「再想想」依次递增</string>
 
+    <string name="debug_section">调试</string>
+    <string name="forward_logs_to_logcat">转发日志到 Logcat</string>
+    <string name="logs_empty">暂无日志</string>
+
     <string name="overlay_hint">拖动框选漫画文字\n点空白处退出</string>
     <string name="step_recognize">识别图片</string>
     <string name="step_parse">解析文本</string>

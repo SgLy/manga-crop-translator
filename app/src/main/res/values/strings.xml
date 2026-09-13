@@ -16,6 +16,10 @@
     <string name="thinking_strength">Thinking Strength</string>
     <string name="thinking_strength_hint">Separate levels with non-letters; each &quot;Think harder&quot; goes one step up.</string>
 
+    <string name="debug_section">Debug</string>
+    <string name="forward_logs_to_logcat">Forward logs to Logcat</string>
+    <string name="logs_empty">No logs yet</string>
+
     <string name="overlay_hint">Drag to select the text\nTap outside to exit</string>
     <string name="step_recognize">Reading the image</string>
     <string name="step_parse">Parsing the text</string>

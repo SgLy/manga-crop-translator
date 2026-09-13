@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         settingsManager = SettingsManager(this)
+        AppLog.forwardToLogcat = settingsManager.forwardLogsToLogcat
 
         setContent {
             CropTranslatorTheme {
@@ -206,6 +207,7 @@ fun SettingsScreen(
 
     var useVisualModelForTranslation by remember { mutableStateOf(settingsManager.useVisualModelForTranslation) }
     var thinkingLevels by remember { mutableStateOf(settingsManager.thinkingLevels) }
+    var forwardLogsToLogcat by remember { mutableStateOf(settingsManager.forwardLogsToLogcat) }
 
     Scaffold(
         modifier = modifier,
@@ -317,6 +319,29 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ---- Debug ----
+            SectionTitle(stringResource(R.string.debug_section))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.forward_logs_to_logcat),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = forwardLogsToLogcat,
+                    onCheckedChange = {
+                        forwardLogsToLogcat = it
+                        settingsManager.forwardLogsToLogcat = it
+                        AppLog.forwardToLogcat = it
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
         }

@@ -35,6 +35,11 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("useVisualModelForTranslation", true)
         set(value) = prefs.edit().putBoolean("useVisualModelForTranslation", value).apply()
 
+    /** When true, [AppLog] also forwards lines to logcat; otherwise they stay in memory only. */
+    var forwardLogsToLogcat: Boolean
+        get() = prefs.getBoolean("forwardLogsToLogcat", false)
+        set(value) = prefs.edit().putBoolean("forwardLogsToLogcat", value).apply()
+
     /** Raw thinking-strength string, split on non-letters. */
     var thinkingLevels: String
         get() = prefs.getString("thinkingLevels", "low,high,max") ?: "low,high,max"

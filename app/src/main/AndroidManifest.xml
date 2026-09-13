@@ -42,6 +42,12 @@
             android:launchMode="singleInstance"
             android:taskAffinity=""
             android:exported="false" />
+
+        <activity
+            android:name=".LogsActivity"
+            android:theme="@style/Theme.CropTranslator"
+            android:excludeFromRecents="true"
+            android:exported="false" />
     </application>
 
 </manifest>

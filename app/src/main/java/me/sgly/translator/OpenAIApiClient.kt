@@ -2,7 +2,6 @@ package me.sgly.translator
 
 import android.graphics.Bitmap
 import android.util.Base64
-import android.util.Log
 import kotlinx.serialization.json.*
 import kotlinx.serialization.encodeToString
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +28,7 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
 
     suspend fun extractTextFromImage(bitmap: Bitmap, thinkingEffort: String, onThinkingUpdate: suspend (String) -> Unit = {}): OcrResult = withContext(Dispatchers.IO) {
         val base64Image = bitmapToBase64(bitmap)
-        Log.d("MangaVisualModel", "Base64 image length: ${base64Image.length} characters")
+        AppLog.d("MangaVisualModel", "Base64 image length: ${base64Image.length} characters")
 
         val apiKey = settingsManager.visualModelApiKey
         val apiBase = settingsManager.visualModelApiBase.trimEnd('/')
@@ -85,10 +84,10 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
             )
         )
 
-        Log.d("MangaVisualModel", "Requesting VisualModel OCR: URL=$endpoint, Model=$model")
+        AppLog.d("MangaVisualModel", "Requesting VisualModel OCR: URL=$endpoint, Model=$model")
 
         val requestJson = jsonDecoder.encodeToString(requestObj)
-        logLong("MangaVisualModel", "\u2192 Request body:\n" + sanitizeForLog(requestJson))
+        AppLog.d("MangaVisualModel") { "\u2192 Request body:\n" + sanitizeForLog(requestJson) }
 
         val request = Request.Builder()
             .url(endpoint)
@@ -99,18 +98,16 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: ""
-                Log.e("MangaVisualModel", "API Error Response: ${response.code} - $errorBody")
+                AppLog.e("MangaVisualModel", "API Error Response: ${response.code} - $errorBody")
                 throw Exception("VisualModel Request Failed: ${response.code}\n$errorBody")
             }
 
             val source = response.body?.source() ?: throw Exception("Empty response body")
             val contentBuilder = java.lang.StringBuilder()
             val functionArguments = java.lang.StringBuilder()
-            val rawResponse = java.lang.StringBuilder()
 
             while (!source.exhausted()) {
                 val line = source.readUtf8Line() ?: continue
-                rawResponse.append(line).append('\n')
                 if (line.isEmpty() || !line.startsWith("data:")) continue
                 val dataStr = line.substringAfter("data:").trim()
                 if (dataStr == "[DONE]") break
@@ -147,15 +144,14 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
                 }
             }
 
-            logLong("MangaVisualModel", "\u2190 Raw SSE response:\n$rawResponse")
             val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
-            logLong("MangaVisualModel", "\u2190 Assembled final JSON:\n$finalJson")
+            AppLog.d("MangaVisualModel") { "\u2190 Assembled final JSON:\n$finalJson" }
             if (finalJson.isNotEmpty()) {
                 try {
                     val cleanJson = finalJson.trim().removePrefix("```json").removeSuffix("```").trim()
                     return@withContext jsonDecoder.decodeFromString<OcrResult>(cleanJson)
                 } catch (e: Exception) {
-                    Log.e("MangaVisualModel", "Failed to parse JSON: $finalJson", e)
+                    AppLog.e("MangaVisualModel", "Failed to parse JSON: $finalJson", e)
                     throw Exception("Failed to parse JSON: ${e.message}\n$finalJson")
                 }
             }
@@ -221,10 +217,10 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
             )
         )
 
-        Log.d("MangaTranslateModel", "Requesting TranslateModel Translation: URL=$endpoint, Model=$model")
+        AppLog.d("MangaTranslateModel", "Requesting TranslateModel Translation: URL=$endpoint, Model=$model")
 
         val requestJson = jsonDecoder.encodeToString(requestObj)
-        logLong("MangaTranslateModel", "\u2192 Request body:\n" + sanitizeForLog(requestJson))
+        AppLog.d("MangaTranslateModel") { "\u2192 Request body:\n" + sanitizeForLog(requestJson) }
 
         val request = Request.Builder()
             .url(endpoint)
@@ -235,18 +231,16 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: ""
-                Log.e("MangaTranslateModel", "API Error Response: ${response.code} - $errorBody")
+                AppLog.e("MangaTranslateModel", "API Error Response: ${response.code} - $errorBody")
                 throw Exception("TranslateModel Translation Failed: ${response.code}\n$errorBody")
             }
 
             val source = response.body?.source() ?: throw Exception("Empty response body")
             val contentBuilder = java.lang.StringBuilder()
             val functionArguments = java.lang.StringBuilder()
-            val rawResponse = java.lang.StringBuilder()
 
             while (!source.exhausted()) {
                 val line = source.readUtf8Line() ?: continue
-                rawResponse.append(line).append('\n')
                 if (line.isEmpty() || !line.startsWith("data:")) continue
                 val dataStr = line.substringAfter("data:").trim()
                 if (dataStr == "[DONE]") break
@@ -283,15 +277,14 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
                 }
             }
 
-            logLong("MangaTranslateModel", "\u2190 Raw SSE response:\n$rawResponse")
             val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
-            logLong("MangaTranslateModel", "\u2190 Assembled final JSON:\n$finalJson")
+            AppLog.d("MangaTranslateModel") { "\u2190 Assembled final JSON:\n$finalJson" }
             if (finalJson.isNotEmpty()) {
                 try {
                     val cleanJson = finalJson.trim().removePrefix("```json").removeSuffix("```").trim()
                     return@withContext jsonDecoder.decodeFromString<TranslationResult>(cleanJson)
                 } catch (e: Exception) {
-                    Log.e("MangaTranslateModel", "Failed to parse JSON: $finalJson", e)
+                    AppLog.e("MangaTranslateModel", "Failed to parse JSON: $finalJson", e)
                     throw Exception("Failed to parse JSON: ${e.message}\n$finalJson")
                 }
             }
@@ -306,17 +299,6 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
             Regex("data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+"),
             "data:image/png;base64,<BASE64_OMITTED>"
         )
-
-    /** Logs a potentially long string in chunks (logcat truncates single messages ~4000 chars). */
-    private fun logLong(tag: String, message: String) {
-        val chunkSize = 3500
-        var index = 0
-        while (index < message.length) {
-            val end = (index + chunkSize).coerceAtMost(message.length)
-            Log.d(tag, message.substring(index, end))
-            index = end
-        }
-    }
 
     /**
      * Thinking is always on; `reasoning_effort` carries the user's effort token verbatim

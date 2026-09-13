@@ -323,7 +323,7 @@ fun BottomActionBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         TextButton(onClick = {
-            android.widget.Toast.makeText(context, context.getString(R.string.not_implemented), android.widget.Toast.LENGTH_SHORT).show()
+            context.startActivity(android.content.Intent(context, LogsActivity::class.java))
         }) {
             Text(stringResource(R.string.action_logs))
         }

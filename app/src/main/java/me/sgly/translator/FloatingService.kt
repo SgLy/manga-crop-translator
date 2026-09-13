@@ -41,7 +41,6 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import android.util.Log
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -72,6 +71,7 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         screenCaptureManager = ScreenCaptureManager(this)
         overlayScreenManager = OverlayScreenManager(this)
         settingsManager = SettingsManager(this)
+        AppLog.forwardToLogcat = settingsManager.forwardLogsToLogcat
         openAIApiClient = OpenAIApiClient(settingsManager)
 
         // FAB visibility: visible only when Idle
@@ -93,7 +93,7 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             return@collectLatest
                         }
                         val bitmap = screenCaptureManager.screenCaptureFlow.first()
-                        Log.i("TranslatorState", "capturedBitmap: ${bitmap.width}×${bitmap.height}")
+                        AppLog.i("TranslatorState", "capturedBitmap: ${bitmap.width}×${bitmap.height}")
                         TranslatorState.capturedBitmap = bitmap
                         TranslatorState.transition(AppPhase.Cropping, TransitionReason.FrameCaptured)
                     }
@@ -101,7 +101,7 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                         val cropped = overlayScreenManager.showOverlay(TranslatorState.capturedBitmap!!)
                         if (cropped != null) {
                             TranslatorState.croppedBitmap = cropped
-                            Log.i("TranslatorState", "croppedBitmap: ${cropped.width}×${cropped.height}")
+                            AppLog.i("TranslatorState", "croppedBitmap: ${cropped.width}×${cropped.height}")
                             startActivity(Intent(this@FloatingService, ResultActivity::class.java).apply {
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                             })

@@ -1,7 +1,6 @@
 package me.sgly.translator
 
 import android.graphics.Bitmap
-import android.util.Log
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -95,7 +94,7 @@ object TranslatorState {
      */
     fun transition(to: AppPhase, reason: TransitionReason) {
         val from = _phase.value
-        Log.i("TranslatorState", "$from → $to [$reason]")
+        AppLog.i("TranslatorState", "$from → $to [$reason]")
         when (reason) {
             TransitionReason.FabClicked -> {
                 // A new capture session starts: reset to the base thinking level
