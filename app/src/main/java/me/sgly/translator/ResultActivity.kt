@@ -5,9 +5,11 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
@@ -22,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 class ResultActivity : ComponentActivity() {
 
@@ -210,6 +213,126 @@ fun StepRow(label: String, status: StepUiStatus) {
     }
 }
 
+/** A piece of a source segment: either verbatim text or a vocabulary word to gloss. */
+private sealed interface SourceToken {
+    data class Plain(val text: String) : SourceToken
+    data class Annotated(val word: TranslationWord, val surface: String) : SourceToken
+}
+
+/**
+ * Splits [segment] around [words]: each word is located at its first occurrence after the
+ * previous match, so the annotated pieces keep the original reading order.
+ */
+private fun tokenizeSegment(segment: String, words: List<TranslationWord>): List<SourceToken> {
+    val tokens = mutableListOf<SourceToken>()
+    var cursor = 0
+    for (word in words) {
+        if (word.word.isEmpty()) continue
+        val index = segment.indexOf(word.word, cursor)
+        if (index < 0) continue
+        if (index > cursor) tokens += SourceToken.Plain(segment.substring(cursor, index))
+        tokens += SourceToken.Annotated(word, segment.substring(index, index + word.word.length))
+        cursor = index + word.word.length
+    }
+    if (cursor < segment.length) tokens += SourceToken.Plain(segment.substring(cursor))
+    return tokens
+}
+
+/**
+ * Breaks plain text into pieces small enough to wrap inside a [FlowRow]: runs of ASCII
+ * letters/digits stay glued together, everything else goes character by character (which is how
+ * Japanese breaks anyway). Trailing whitespace sticks to the piece before it.
+ */
+private fun chunkPlainText(text: String): List<String> = buildList {
+    var i = 0
+    while (i < text.length) {
+        val start = i
+        if (text[i].isAsciiWordChar()) {
+            while (i < text.length && text[i].isAsciiWordChar()) i++
+        } else {
+            i++
+        }
+        while (i < text.length && text[i].isWhitespace()) i++
+        add(text.substring(start, i))
+    }
+}
+
+private fun Char.isAsciiWordChar(): Boolean = isLetterOrDigit() && code < 0x80
+
+/**
+ * A source word with its gloss underneath and, for loanwords, a "+" that reveals the etymology.
+ * The whole word is the tooltip anchor so it is easy to hit with a thumb.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AnnotatedWord(token: SourceToken.Annotated) {
+    val origin = token.word.origin?.takeIf { it.isNotBlank() }
+
+    val word: @Composable () -> Unit = {
+        Column(
+            modifier = Modifier
+                .width(IntrinsicSize.Max)
+                .padding(horizontal = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = token.surface,
+                fontSize = 15.sp,
+                lineHeight = 20.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.5.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        shape = RoundedCornerShape(1.dp)
+                    )
+            )
+            Row(verticalAlignment = Alignment.Top) {
+                Text(
+                    text = token.word.definition,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+                if (origin != null) {
+                    Text(
+                        text = "+",
+                        fontSize = 12.sp,
+                        lineHeight = 15.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.offset(y = (-3).dp)
+                    )
+                }
+            }
+        }
+    }
+
+    if (origin == null) {
+        word()
+    } else {
+        val tooltipState = rememberTooltipState()
+        val scope = rememberCoroutineScope()
+        TooltipBox(
+            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+                TooltipAnchorPosition.Below
+            ),
+            state = tooltipState,
+            enableUserInput = false,
+            tooltip = { PlainTooltip { Text(origin) } }
+        ) {
+            Box(modifier = Modifier.clickable { scope.launch { tooltipState.show() } }) {
+                word()
+            }
+        }
+    }
+}
+
 @Composable
 fun ResultBlocks(
     ocrResult: OcrResult,
@@ -223,9 +346,12 @@ fun ResultBlocks(
             .heightIn(min = 60.dp)
     ) {
         ocrResult.blocks.forEachIndexed { index, block ->
-            // Japanese original text: each string in the block as a separate segment with dividers
+            // Japanese original text, with each vocabulary word glossed underneath.
+            val columns = translationResult.results.getOrNull(index)?.columns.orEmpty()
             FlowRow(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                // Breathing room between wrapped source lines (the gloss row sits inside them).
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 block.forEachIndexed { segIndex, segment ->
                     if (segIndex > 0) {
@@ -237,15 +363,23 @@ fun ResultBlocks(
                             thickness = 1.dp
                         )
                     }
-                    Text(
-                        text = segment,
-                        fontSize = 15.sp,
-                        lineHeight = 20.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    tokenizeSegment(segment, columns.getOrNull(segIndex).orEmpty()).forEach { token ->
+                        when (token) {
+                            is SourceToken.Plain -> chunkPlainText(token.text).forEach { chunk ->
+                                Text(
+                                    text = chunk,
+                                    fontSize = 15.sp,
+                                    lineHeight = 20.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+
+                            is SourceToken.Annotated -> AnnotatedWord(token)
+                        }
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             // Corresponding Chinese translation
             val translation = translationResult.results.getOrNull(index)?.translation ?: ""
             Text(
