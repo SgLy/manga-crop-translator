@@ -26,7 +26,11 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
     private val JSON = "application/json; charset=utf-8".toMediaType()
     private val jsonDecoder = Json { ignoreUnknownKeys = true }
 
-    suspend fun extractTextFromImage(bitmap: Bitmap, thinkingEffort: String, onThinkingUpdate: suspend (String) -> Unit = {}): OcrResult = withContext(Dispatchers.IO) {
+    suspend fun extractTextFromImage(
+        bitmap: Bitmap,
+        thinkingEffort: String,
+        onOutputDelta: suspend (String) -> Unit = {}
+    ): OcrResult = withContext(Dispatchers.IO) {
         val base64Image = bitmapToBase64(bitmap)
         AppLog.d("MangaVisualModel", "Base64 image length: ${base64Image.length} characters")
 
@@ -44,6 +48,7 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         val requestObj = OpenAIChatRequest(
             model = model,
             stream = true,
+            streamOptions = OpenAIStreamOptions(includeUsage = true),
             thinking = thinking,
             reasoningEffort = reasoningEffort,
             tools = listOf(
@@ -112,12 +117,12 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
                         if (delta != null) {
                             val reasoning = delta.optString("reasoning_content", "")
                             if (reasoning.isNotEmpty()) {
-                                onThinkingUpdate(reasoning)
+                                onOutputDelta(reasoning)
                             }
                             
                             val content = delta.optString("content", "")
                             if (content.isNotEmpty()) {
-                                onThinkingUpdate(content)
+                                onOutputDelta(content)
                                 contentBuilder.append(content)
                             }
                             
@@ -126,10 +131,21 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
                                 val tc = toolCalls.getJSONObject(0)
                                 val func = tc.optJSONObject("function")
                                 if (func != null && func.has("arguments")) {
-                                    functionArguments.append(func.getString("arguments"))
+                                    val arguments = func.getString("arguments")
+                                    functionArguments.append(arguments)
+                                    // Tool arguments stream in as their own chunks; count them too so
+                                    // the counter keeps moving while the model writes the JSON.
+                                    onOutputDelta(arguments)
                                 }
                             }
                         }
+                    }
+
+                    // With stream_options.include_usage the server reports token usage once, on the
+                    // last chunk of the stream. Log the whole object for cost/debug inspection.
+                    val usage = jsonChunk.optJSONObject("usage")
+                    if (usage != null) {
+                        AppLog.i("OpenAIUsage", usage.toString())
                     }
                 } catch (e: Exception) {
                     /* Ignore JSON parse errors for incomplete chunks */
@@ -152,7 +168,11 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         }
     }
 
-    suspend fun translateText(japaneseText: String, thinkingEffort: String, onThinkingUpdate: suspend (String) -> Unit = {}): TranslationResult = withContext(Dispatchers.IO) {
+    suspend fun translateText(
+        japaneseText: String,
+        thinkingEffort: String,
+        onOutputDelta: suspend (String) -> Unit = {}
+    ): TranslationResult = withContext(Dispatchers.IO) {
         val useVisualModel = settingsManager.useVisualModelForTranslation
         val apiKey = if (useVisualModel) settingsManager.visualModelApiKey else settingsManager.translateModelApiKey
         val apiBase = (if (useVisualModel) settingsManager.visualModelApiBase else settingsManager.translateModelApiBase).trimEnd('/')
@@ -168,6 +188,7 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
         val requestObj = OpenAIChatRequest(
             model = model,
             stream = true,
+            streamOptions = OpenAIStreamOptions(includeUsage = true),
             thinking = thinking,
             reasoningEffort = reasoningEffort,
             tools = listOf(
@@ -229,12 +250,12 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
                         if (delta != null) {
                             val reasoning = delta.optString("reasoning_content", "")
                             if (reasoning.isNotEmpty()) {
-                                onThinkingUpdate(reasoning)
+                                onOutputDelta(reasoning)
                             }
                             
                             val content = delta.optString("content", "")
                             if (content.isNotEmpty()) {
-                                onThinkingUpdate(content)
+                                onOutputDelta(content)
                                 contentBuilder.append(content)
                             }
                             
@@ -243,10 +264,21 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
                                 val tc = toolCalls.getJSONObject(0)
                                 val func = tc.optJSONObject("function")
                                 if (func != null && func.has("arguments")) {
-                                    functionArguments.append(func.getString("arguments"))
+                                    val arguments = func.getString("arguments")
+                                    functionArguments.append(arguments)
+                                    // Tool arguments stream in as their own chunks; count them too so
+                                    // the counter keeps moving while the model writes the JSON.
+                                    onOutputDelta(arguments)
                                 }
                             }
                         }
+                    }
+
+                    // With stream_options.include_usage the server reports token usage once, on the
+                    // last chunk of the stream. Log the whole object for cost/debug inspection.
+                    val usage = jsonChunk.optJSONObject("usage")
+                    if (usage != null) {
+                        AppLog.i("OpenAIUsage", usage.toString())
                     }
                 } catch (e: Exception) {
                     /* Ignore JSON parse errors for incomplete chunks */

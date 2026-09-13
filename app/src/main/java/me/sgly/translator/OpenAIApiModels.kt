@@ -12,6 +12,7 @@ data class OpenAIChatRequest(
     val tools: List<OpenAITool>? = null,
     @SerialName("tool_choice") val toolChoice: String? = null,
     val stream: Boolean? = null,
+    @SerialName("stream_options") val streamOptions: OpenAIStreamOptions? = null,
     val thinking: OpenAIThinkingConfig? = null,
     @SerialName("reasoning_effort") val reasoningEffort: String? = null
 )
@@ -24,6 +25,10 @@ data class OpenAIChatMessage(
 
 @Serializable
 data class OpenAIThinkingConfig(val type: String)
+
+/** Asks an OpenAI-compatible server to append a final SSE chunk carrying the token usage. */
+@Serializable
+data class OpenAIStreamOptions(@SerialName("include_usage") val includeUsage: Boolean)
 
 @Serializable
 data class OpenAITool(

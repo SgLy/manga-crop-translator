@@ -80,8 +80,23 @@ async function streamResponse(resp) {
   let toolCallArgs = "";
   let firstReasoning = true;
   let firstContent = true;
+  let chunkCount = 0;
+  const usageChunks = [];
 
   for await (const chunk of resp) {
+    chunkCount++;
+
+    // ---- usage 诊断 ----
+    // include_usage 的那个 chunk，choices 是空数组、只带 usage，所以会掉进下面的
+    // `!delta → continue` 被丢掉。有些服务端则是每一块都带一份累积值。先不管 delta 直接抓。
+    if (chunk.usage) {
+      usageChunks.push({
+        index: chunkCount,
+        choices: chunk.choices?.length ?? 0,
+        usage: chunk.usage,
+      });
+    }
+
     const delta = chunk.choices?.[0]?.delta;
     if (!delta) continue;
 
@@ -118,6 +133,18 @@ async function streamResponse(resp) {
 
   // 末尾换行
   if (!firstReasoning || !firstContent) process.stdout.write("\n");
+
+  // ---- usage 汇总 ----
+  console.log(`\n📊 共收到 ${chunkCount} 个 chunk，其中带 usage 的有 ${usageChunks.length} 个`);
+  for (const u of usageChunks.slice(0, 3)) {
+    console.log(`   #${u.index} choices=${u.choices} ${JSON.stringify(u.usage)}`);
+  }
+  if (usageChunks.length > 3) {
+    const last = usageChunks[usageChunks.length - 1];
+    console.log(
+      `   … 共 ${usageChunks.length} 个，最后是 #${last.index} choices=${last.choices} ${JSON.stringify(last.usage)}`,
+    );
+  }
 
   return { contentText, reasoningText, toolCallArgs };
 }
