@@ -4,6 +4,12 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,6 +21,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,15 +53,16 @@ class ResultActivity : ComponentActivity() {
                 val ocrResult by TranslatorState.ocrResult.collectAsState()
                 val translationResult by TranslatorState.translationResult.collectAsState()
                 val errorText by TranslatorState.errorText.collectAsState()
+                val firstTokenReceived by TranslatorState.firstTokenReceived.collectAsState()
 
                 val ocrStatus = when (phase) {
-                    AppPhase.Recognizing -> StepUiStatus.Loading
+                    AppPhase.Recognizing -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
                     AppPhase.OcrError -> StepUiStatus.Error
                     AppPhase.Parsing, AppPhase.Done, AppPhase.TranslateError -> StepUiStatus.Done
                     else -> StepUiStatus.Idle
                 }
                 val translateStatus = when (phase) {
-                    AppPhase.Parsing -> StepUiStatus.Loading
+                    AppPhase.Parsing -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
                     AppPhase.Done -> StepUiStatus.Done
                     AppPhase.TranslateError -> StepUiStatus.Error
                     else -> StepUiStatus.Idle
@@ -157,7 +165,7 @@ class ResultActivity : ComponentActivity() {
     }
 }
 
-enum class StepUiStatus { Idle, Loading, Done, Error }
+enum class StepUiStatus { Idle, Waiting, Streaming, Done, Error }
 
 @Composable
 fun StepRow(label: String, status: StepUiStatus) {
@@ -166,11 +174,31 @@ fun StepRow(label: String, status: StepUiStatus) {
         modifier = Modifier.fillMaxWidth()
     ) {
         when (status) {
-            StepUiStatus.Loading -> {
+            StepUiStatus.Waiting -> {
+                // Request sent, no SSE chunk yet: something is happening, we just cannot see it.
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            StepUiStatus.Streaming -> {
+                // First token has landed: the spinner gives way to a pulsing down arrow,
+                // which reads as "output is flowing" rather than "still waiting".
+                val blink by rememberInfiniteTransition(label = "streamingBlink").animateFloat(
+                    initialValue = 0.25f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 400, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "blinkAlpha"
+                )
+                Icon(
+                    imageVector = Icons.Outlined.ArrowDownward,
+                    contentDescription = stringResource(R.string.cd_streaming),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = blink),
+                    modifier = Modifier.size(16.dp)
                 )
             }
             StepUiStatus.Done -> {
@@ -200,13 +228,13 @@ fun StepRow(label: String, status: StepUiStatus) {
             text = label,
             fontSize = 13.sp,
             color = when (status) {
-                StepUiStatus.Loading -> MaterialTheme.colorScheme.onSurface
+                StepUiStatus.Waiting, StepUiStatus.Streaming -> MaterialTheme.colorScheme.onSurface
                 StepUiStatus.Done -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 StepUiStatus.Error -> MaterialTheme.colorScheme.error
                 StepUiStatus.Idle -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
             },
             fontWeight = when (status) {
-                StepUiStatus.Loading -> FontWeight.Medium
+                StepUiStatus.Waiting, StepUiStatus.Streaming -> FontWeight.Medium
                 else -> FontWeight.Normal
             }
         )

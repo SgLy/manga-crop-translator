@@ -50,6 +50,13 @@ object TranslatorState {
     private val _capturedContentVisible = MutableStateFlow(false)
     val capturedContentVisible: StateFlow<Boolean> = _capturedContentVisible.asStateFlow()
 
+    /**
+     * Whether the in-flight streaming response has already delivered its first token.
+     * False while we are still waiting for the first SSE chunk, true from that first delta on.
+     */
+    private val _firstTokenReceived = MutableStateFlow(false)
+    val firstTokenReceived: StateFlow<Boolean> = _firstTokenReceived.asStateFlow()
+
     private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
     val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
 
@@ -94,6 +101,19 @@ object TranslatorState {
     fun setCapturedContentVisible(visible: Boolean) { _capturedContentVisible.value = visible }
 
     /**
+     * Called with every streamed output delta of the in-flight request. Only the first one matters:
+     * it flips the step row from the waiting spinner to the streaming arrow.
+     */
+    fun onOutputDelta(delta: String) {
+        _firstTokenReceived.value = true
+    }
+
+    /** Back to "nothing received yet" — called whenever a new streaming phase starts. */
+    private fun resetStreamProgress() {
+        _firstTokenReceived.value = false
+    }
+
+    /**
      * The single entry point for all state transitions.
      * Applies data-clearing rules appropriate to the reason, then updates phase.
      */
@@ -132,6 +152,10 @@ object TranslatorState {
             }
             else -> {}
         }
+        // Entering a streaming phase means a new request is starting: nothing has arrived yet.
+        if (to == AppPhase.Recognizing || to == AppPhase.Parsing) {
+            resetStreamProgress()
+        }
         _phase.value = to
         _lastTransition.tryEmit(Transition(from, to, reason))
     }
@@ -146,6 +170,7 @@ object TranslatorState {
         _errorText.value = ""
         _thinkingLevelIndex.value = 0
         _capturedContentVisible.value = false
+        resetStreamProgress()
         _phase.value = AppPhase.Idle
         _lastTransition.tryEmit(Transition(from, AppPhase.Idle, TransitionReason.Reset))
     }
