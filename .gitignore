@@ -22,3 +22,5 @@ quick-test/node_modules
 quick-test/.env
 quick-test/crop.png
 quick-test/ocr-result.json
+quick-test/translate-result.json
+quick-test/demo.html
