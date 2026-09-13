@@ -1,7 +1,79 @@
+import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.TypeSpec
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.TaskAction
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath(libs.kotlinpoet)
+    }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+}
+
+// ---------------------------------------------------------------------------
+// System prompts live in /prompts/*.md (single source of truth) and are baked
+// into a generated Kotlin file at build time.
+// ---------------------------------------------------------------------------
+abstract class GeneratePromptsTask : DefaultTask() {
+    @get:InputFiles
+    abstract val promptMarkdown: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        // Prompts are text: normalize CRLF (a checkout may use it) and drop the trailing newline.
+        fun normalize(text: String) = text.replace("\r\n", "\n").trimEnd('\n')
+
+        fun promptProperty(name: String, raw: String) =
+            PropertySpec.builder(name, String::class)
+                .initializer("%S", normalize(raw))
+                .build()
+
+        val markdown = promptMarkdown.files.associateBy { it.name }
+
+        FileSpec.builder("me.sgly.translator", "Prompts")
+            .addFileComment("Generated from /prompts/*.md at build time. Do not edit.")
+            .addType(
+                TypeSpec.objectBuilder("Prompts")
+                    .addModifiers(KModifier.INTERNAL)
+                    .addProperty(promptProperty("VISUAL", markdown.getValue("visual.md").readText()))
+                    .addProperty(promptProperty("TRANSLATE", markdown.getValue("translate.md").readText()))
+                    .build(),
+            )
+            .build()
+            .writeTo(outputDirectory.get().asFile)
+    }
+}
+
+val generatePrompts = tasks.register<GeneratePromptsTask>("generatePrompts") {
+    promptMarkdown.from(rootProject.layout.projectDirectory.file("prompts/visual.md"))
+    promptMarkdown.from(rootProject.layout.projectDirectory.file("prompts/translate.md"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/prompts"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.java?.addGeneratedSourceDirectory(
+            generatePrompts,
+            GeneratePromptsTask::outputDirectory,
+        )
+    }
 }
 
 android {

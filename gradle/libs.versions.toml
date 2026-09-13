@@ -8,6 +8,7 @@ lifecycleRuntimeKtx = "2.6.1"
 activityCompose = "1.8.0"
 kotlin = "2.2.10"
 composeBom = "2026.02.01"
+kotlinpoet = "2.4.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -27,6 +28,7 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.8.0" }
 kotlinx-schema-annotations = { group = "org.jetbrains.kotlinx", name = "kotlinx-schema-annotations", version = "0.5.0" }
 kotlinx-schema-generator-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-schema-generator-json", version = "0.5.0" }
+kotlinpoet = { group = "com.squareup", name = "kotlinpoet", version.ref = "kotlinpoet" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
