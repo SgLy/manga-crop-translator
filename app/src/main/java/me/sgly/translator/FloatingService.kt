@@ -41,7 +41,9 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -53,6 +55,11 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private lateinit var overlayScreenManager: OverlayScreenManager
     private lateinit var openAIApiClient: OpenAIApiClient
     private lateinit var settingsManager: SettingsManager
+
+    /** Phases in which the result sheet is the intended on-screen UI. */
+    private val resultPhases = setOf(
+        AppPhase.Recognizing, AppPhase.Parsing, AppPhase.Done, AppPhase.OcrError, AppPhase.TranslateError
+    )
 
     private val serviceScope = CoroutineScope(Dispatchers.Main)
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -69,18 +76,40 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         createNotificationChannel()
         screenCaptureManager = ScreenCaptureManager(this)
+        screenCaptureManager.onCapturedContentVisibilityChanged = { visible ->
+            val wasVisible = TranslatorState.capturedContentVisible.value
+            TranslatorState.setCapturedContentVisible(visible)
+            // Coming back to the shared app: restore the UI the current phase implies.
+            if (visible && !wasVisible && TranslatorState.phase.value in resultPhases) {
+                serviceScope.launch {
+                    // Delay past the system's transition to the shared app: launching during it makes
+                    // MIUI abort the move-to-front ("avoidMoveToFront by anim effect").
+                    delay(500)
+                    if (TranslatorState.capturedContentVisible.value &&
+                        TranslatorState.phase.value in resultPhases &&
+                        ::floatingView.isInitialized
+                    ) {
+                        // MIUI only treats the launch as a *visible* launch when our app already has
+                        // a visible overlay window. Flash the FAB window as a "spark" so the restored
+                        // result sheet actually reaches the foreground (and hide it right after).
+                        floatingView.visibility = View.VISIBLE
+                        delay(120)
+                        showResultSheet(clearTask = true)
+                        delay(400)
+                        updateFabVisibility()
+                    }
+                }
+            }
+        }
         overlayScreenManager = OverlayScreenManager(this)
         settingsManager = SettingsManager(this)
         AppLog.forwardToLogcat = settingsManager.forwardLogsToLogcat
         openAIApiClient = OpenAIApiClient(settingsManager)
 
-        // FAB visibility: visible only when Idle
+        // FAB visibility follows (phase, capturedContentVisible)
         serviceScope.launch {
-            TranslatorState.phase.collect { phase ->
-                if (::floatingView.isInitialized) {
-                    floatingView.visibility = if (phase == AppPhase.Idle) View.VISIBLE else View.INVISIBLE
-                }
-            }
+            combine(TranslatorState.phase, TranslatorState.capturedContentVisible) { phase, visible -> phase to visible }
+                .collect { updateFabVisibility() }
         }
 
         // Orchestration: drive the pipeline based on current phase
@@ -102,9 +131,7 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                         if (cropped != null) {
                             TranslatorState.croppedBitmap = cropped
                             AppLog.i("TranslatorState", "croppedBitmap: ${cropped.width}×${cropped.height}")
-                            startActivity(Intent(this@FloatingService, ResultActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                            })
+                            showResultSheet()
                             overlayScreenManager.hideOverlay()
                             TranslatorState.transition(AppPhase.Recognizing, TransitionReason.CropSelected)
                         } else {
@@ -274,6 +301,28 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
         floatingView = frameLayout
         windowManager.addView(floatingView, params)
+        updateFabVisibility()
+    }
+
+    /**
+     * The FAB is only shown when the state machine is idle *and* the captured region is on
+     * screen — with Android 14 app screen sharing that means the shared app is in the foreground.
+     */
+    private fun updateFabVisibility() {
+        if (!::floatingView.isInitialized) return
+        val show = TranslatorState.phase.value == AppPhase.Idle && TranslatorState.capturedContentVisible.value
+        floatingView.visibility = if (show) View.VISIBLE else View.INVISIBLE
+    }
+
+    private fun showResultSheet(clearTask: Boolean = false) {
+        val intent = Intent(this, ResultActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+            // Re-launching a still-alive singleInstance task only "delivers to top" and never
+            // comes to the foreground (observed on HyperOS). Clearing the task first forces a
+            // fresh, visible launch instead of reusing the orphaned background instance.
+            addFlags(if (clearTask) Intent.FLAG_ACTIVITY_CLEAR_TASK else Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        startActivity(intent)
     }
 
     override fun onDestroy() {

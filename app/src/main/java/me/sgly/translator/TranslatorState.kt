@@ -46,6 +46,10 @@ object TranslatorState {
     private val _phase = MutableStateFlow(AppPhase.Idle)
     val phase: StateFlow<AppPhase> = _phase.asStateFlow()
 
+    /** Whether the captured region (the shared app) is currently visible on screen. */
+    private val _capturedContentVisible = MutableStateFlow(false)
+    val capturedContentVisible: StateFlow<Boolean> = _capturedContentVisible.asStateFlow()
+
     private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
     val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
 
@@ -87,6 +91,7 @@ object TranslatorState {
     fun setOcrResult(result: OcrResult) { _ocrResult.value = result }
     fun setTranslationResult(result: TranslationResult) { _translationResult.value = result }
     fun setErrorText(text: String) { _errorText.value = text }
+    fun setCapturedContentVisible(visible: Boolean) { _capturedContentVisible.value = visible }
 
     /**
      * The single entry point for all state transitions.
@@ -140,6 +145,7 @@ object TranslatorState {
         _translationResult.value = null
         _errorText.value = ""
         _thinkingLevelIndex.value = 0
+        _capturedContentVisible.value = false
         _phase.value = AppPhase.Idle
         _lastTransition.tryEmit(Transition(from, AppPhase.Idle, TransitionReason.Reset))
     }
