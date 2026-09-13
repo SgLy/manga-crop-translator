@@ -311,7 +311,6 @@ async function testTranslateModel() {
       tools: [
         {
           type: "function",
-          strict: true,
           function: {
             name: "submit_translation_result",
             description: "提交翻译结果",
