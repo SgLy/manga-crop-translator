@@ -17,6 +17,8 @@ data class TranslationWord(
     val lemma: String,
     @Description("简明扼要的中文释义")
     val definition: String,
+    @Description("外来语词源，格式「原词[原语言]」，例如 karte[德]；非外来语时为 null")
+    val origin: String?,
     @Description("介于 0 到 1 之间相对难度评分")
     val difficulty: Double?
 )

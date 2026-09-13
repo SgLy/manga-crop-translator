@@ -333,9 +333,10 @@ async function testTranslateModel() {
                               word: { type: "string", description: "原文出现的原词" },
                               lemma: { type: "string", description: "该词去掉变体后的辞书原型" },
                               definition: { type: "string", description: "简明扼要的中文释义" },
-                              difficulty: { type: "number", description: "介于 0 到 1 之间相对难度评分" },
+                              origin: { type: ["string", "null"], description: "外来语词源，格式「原词[原语言]」，例如 karte[德]；非外来语时为 null" },
+                              difficulty: { type: ["number", "null"], description: "介于 0 到 1 之间相对难度评分" },
                             },
-                            required: ["word", "lemma", "definition", "difficulty"],
+                            required: ["word", "lemma", "definition", "origin", "difficulty"],
                             additionalProperties: false,
                           },
                         },
@@ -381,7 +382,7 @@ async function testTranslateModel() {
             item.columns.forEach((col, j) => {
               console.log(`  Col${j + 1} 词汇:`);
               col.forEach((w) =>
-                console.log(`    ${w.word} | ${w.lemma} | ${w.definition} | 难度=${w.difficulty}`)
+                console.log(`    ${w.word} | ${w.lemma} | ${w.definition} | 词源=${w.origin ?? "-"} | 难度=${w.difficulty}`)
               );
             });
           }
