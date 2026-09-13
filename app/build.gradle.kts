@@ -25,8 +25,8 @@ plugins {
 }
 
 // ---------------------------------------------------------------------------
-// System prompts live in /prompts/*.md (single source of truth) and are baked
-// into a generated Kotlin file at build time.
+// System prompts live in src/main/java/me/sgly/translator/prompts/*.md (single source of
+// truth) and are baked into a generated Kotlin file at build time.
 // ---------------------------------------------------------------------------
 abstract class GeneratePromptsTask : DefaultTask() {
     @get:InputFiles
@@ -48,7 +48,7 @@ abstract class GeneratePromptsTask : DefaultTask() {
         val markdown = promptMarkdown.files.associateBy { it.name }
 
         FileSpec.builder("me.sgly.translator", "Prompts")
-            .addFileComment("Generated from /prompts/*.md at build time. Do not edit.")
+            .addFileComment("Generated from prompts/*.md at build time. Do not edit.")
             .addType(
                 TypeSpec.objectBuilder("Prompts")
                     .addModifiers(KModifier.INTERNAL)
@@ -61,9 +61,11 @@ abstract class GeneratePromptsTask : DefaultTask() {
     }
 }
 
+val promptsDirectory = layout.projectDirectory.dir("src/main/java/me/sgly/translator/prompts")
+
 val generatePrompts = tasks.register<GeneratePromptsTask>("generatePrompts") {
-    promptMarkdown.from(rootProject.layout.projectDirectory.file("prompts/visual.md"))
-    promptMarkdown.from(rootProject.layout.projectDirectory.file("prompts/translate.md"))
+    promptMarkdown.from(promptsDirectory.file("visual.md"))
+    promptMarkdown.from(promptsDirectory.file("translate.md"))
     outputDirectory.set(layout.buildDirectory.dir("generated/prompts"))
 }
 

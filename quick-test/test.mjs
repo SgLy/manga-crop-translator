@@ -28,11 +28,23 @@ function loadEnv(filePath) {
 loadEnv(path.join(__dirname, ".env"));
 
 // ============================================================
-// 🎨 Prompt 的唯一来源是仓库根目录的 /prompts/*.md，改完直接重新运行！
+// 🎨 Prompt 的唯一来源是 app/src/main/java/me/sgly/translator/prompts/*.md，改完直接重新运行！
 // ============================================================
 
-const readPrompt = (name) =>
-  fs.readFileSync(path.join(__dirname, "..", "prompts", name), "utf-8").trimEnd();
+const PROMPTS_DIR = path.join(
+  __dirname,
+  "..",
+  "app",
+  "src",
+  "main",
+  "java",
+  "me",
+  "sgly",
+  "translator",
+  "prompts",
+);
+
+const readPrompt = (name) => fs.readFileSync(path.join(PROMPTS_DIR, name), "utf-8").trimEnd();
 
 const VISUAL_MODEL_SYSTEM_PROMPT = readPrompt("visual.md");
 const TRANSLATE_MODEL_SYSTEM_PROMPT = readPrompt("translate.md");
