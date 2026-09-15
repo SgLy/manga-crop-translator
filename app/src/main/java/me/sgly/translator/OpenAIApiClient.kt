@@ -5,7 +5,17 @@ import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -26,7 +36,7 @@ class OpenAIApiClient(
             .writeTimeout(180, TimeUnit.SECONDS)
             .build()
 
-    private val JSON = "application/json; charset=utf-8".toMediaType()
+    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val jsonDecoder = Json { ignoreUnknownKeys = true }
 
     suspend fun extractTextFromImage(
@@ -105,7 +115,7 @@ class OpenAIApiClient(
                     .Builder()
                     .url(endpoint)
                     .header("Authorization", "Bearer $apiKey")
-                    .post(requestJson.toRequestBody(JSON))
+                    .post(requestJson.toRequestBody(jsonMediaType))
                     .build()
 
             client.newCall(request).execute().use { response ->
@@ -254,7 +264,7 @@ class OpenAIApiClient(
                     .Builder()
                     .url(endpoint)
                     .header("Authorization", "Bearer $apiKey")
-                    .post(requestJson.toRequestBody(JSON))
+                    .post(requestJson.toRequestBody(jsonMediaType))
                     .build()
 
             client.newCall(request).execute().use { response ->
