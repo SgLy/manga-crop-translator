@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class OcrResult(
-    @Description("所有识别到的主分类文字块列表，块内的文字按行或列进行分割的数组")
+    @Description("识别到的所有文字块，每个文字块是块内按行或列切分出的字符串组成的数组")
     val blocks: List<List<String>>,
 )
 
