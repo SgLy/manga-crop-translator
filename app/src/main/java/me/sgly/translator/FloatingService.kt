@@ -9,8 +9,8 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.media.projection.MediaProjectionManager
-import android.os.Build
 import android.os.IBinder
+import android.util.AttributeSet
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -201,11 +201,7 @@ class FloatingService :
         startId: Int,
     ): Int {
         val notification = createNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
-        } else {
-            startForeground(1, notification)
-        }
+        startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
 
         if (intent != null && intent.hasExtra("EXTRA_RESULT_CODE")) {
             val resultCode = intent.getIntExtra("EXTRA_RESULT_CODE", 0)
@@ -245,9 +241,10 @@ class FloatingService :
             }
 
         val frameLayout =
-            object : FrameLayout(this) {
-                override fun onInterceptTouchEvent(ev: MotionEvent): Boolean = true
-            }.apply {
+            FabContainer(this).apply {
+                setOnClickListener {
+                    TranslatorState.transition(AppPhase.Capturing, TransitionReason.FabClicked)
+                }
                 clipChildren = false
                 clipToPadding = false
                 setViewTreeLifecycleOwner(this@FloatingService)
@@ -259,7 +256,7 @@ class FloatingService :
             LayoutParams(
                 containerSize,
                 containerSize,
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) LayoutParams.TYPE_APPLICATION_OVERLAY else LayoutParams.TYPE_PHONE,
+                LayoutParams.TYPE_APPLICATION_OVERLAY,
                 LayoutParams.FLAG_NOT_FOCUSABLE or LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT,
             )
@@ -320,7 +317,7 @@ class FloatingService :
 
                         MotionEvent.ACTION_UP -> {
                             if (!isDragging) {
-                                TranslatorState.transition(AppPhase.Capturing, TransitionReason.FabClicked)
+                                v.performClick()
                             } else {
                                 // Persist the dragged position so it survives restarts.
                                 settingsManager.fabX = params.x
@@ -374,26 +371,29 @@ class FloatingService :
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel("floating_service", "Manga Translator Service", NotificationManager.IMPORTANCE_LOW)
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel("floating_service", "Manga Translator Service", NotificationManager.IMPORTANCE_LOW)
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(channel)
     }
 
     private fun createNotification(): Notification {
-        val builder =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Notification.Builder(this, "floating_service")
-            } else {
-                Notification.Builder(this)
-            }
+        val builder = Notification.Builder(this, "floating_service")
         return builder
             .setContentTitle("Manga Translator Active")
             .setContentText("Ready to translate manga panels.")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .build()
     }
+}
+
+private class FabContainer(
+    context: Context,
+    attrs: AttributeSet? = null,
+) : FrameLayout(context, attrs) {
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean = true
+
+    // Views that consume touch input must expose performClick for accessibility services.
+    override fun performClick(): Boolean = super.performClick()
 }
 
 @Composable

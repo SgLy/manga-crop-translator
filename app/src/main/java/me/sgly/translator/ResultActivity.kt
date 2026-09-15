@@ -69,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -119,6 +120,7 @@ class ResultActivity : ComponentActivity() {
                     }
                 val scope = rememberCoroutineScope()
                 val context = LocalContext.current
+                val resources = LocalResources.current
 
                 // Word card selection state
                 val selectedIndices = remember { mutableStateSetOf<Int>() }
@@ -208,12 +210,13 @@ class ResultActivity : ComponentActivity() {
                                         val occurrences = occurrencesFor(cards, selectedIndices, ocrResult, translationResult)
                                         scope.launch {
                                             VocabularyDatabase.get(context).vocabularyDao().record(occurrences)
-                                            Toast
-                                                .makeText(
-                                                    context,
-                                                    context.getString(R.string.saved_words, occurrences.size),
-                                                    Toast.LENGTH_SHORT,
-                                                ).show()
+                                            val message =
+                                                resources.getQuantityString(
+                                                    R.plurals.saved_words,
+                                                    occurrences.size,
+                                                    occurrences.size,
+                                                )
+                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                             TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss)
                                         }
                                     },

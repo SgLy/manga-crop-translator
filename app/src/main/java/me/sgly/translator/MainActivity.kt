@@ -2,8 +2,6 @@ package me.sgly.translator
 
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -65,6 +63,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
 import kotlin.coroutines.cancellation.CancellationException
@@ -158,11 +157,7 @@ class MainActivity : ComponentActivity() {
         // Install the parsed thinking ladder before resetting the state machine.
         TranslatorState.setThinkingLevels(settingsManager.thinkingLevelList)
         TranslatorState.reset()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            checkOverlayAndStart()
-        }
+        notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 
     private fun checkOverlayAndStart() {
@@ -170,7 +165,7 @@ class MainActivity : ComponentActivity() {
             val intent =
                 Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:$packageName"),
+                    "package:$packageName".toUri(),
                 )
             overlayPermissionLauncher.launch(intent)
         } else {

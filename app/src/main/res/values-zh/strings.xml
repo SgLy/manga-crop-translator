@@ -28,7 +28,9 @@
     <string name="action_logs">日志</string>
     <string name="action_think_harder">再想想</string>
     <string name="action_save">记一下</string>
-    <string name="saved_words">记下了 %1$d 个词</string>
+    <plurals name="saved_words">
+        <item quantity="other">记下了 %1$d 个词</item>
+    </plurals>
     <string name="action_got_it">知道了</string>
     <string name="action_retry">重试</string>
 </resources>

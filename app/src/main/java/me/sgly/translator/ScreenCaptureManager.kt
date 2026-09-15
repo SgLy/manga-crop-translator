@@ -9,6 +9,7 @@ import android.media.Image
 import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.util.DisplayMetrics
+import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
@@ -139,10 +140,9 @@ class ScreenCaptureManager(
             val rowPadding = rowStride - pixelStride * spec.width
 
             val bitmap =
-                Bitmap.createBitmap(
+                createBitmap(
                     spec.width + rowPadding / pixelStride,
                     spec.height,
-                    Bitmap.Config.ARGB_8888,
                 )
             bitmap.copyPixelsFromBuffer(buffer)
 
