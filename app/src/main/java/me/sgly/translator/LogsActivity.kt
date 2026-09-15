@@ -26,7 +26,6 @@ import java.util.Locale
 
 /** Full-screen viewer for the in-memory [AppLog] ring buffer. */
 class LogsActivity : ComponentActivity() {
-
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,30 +46,32 @@ class LogsActivity : ComponentActivity() {
                                 IconButton(onClick = { finish() }) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = stringResource(R.string.cd_back)
+                                        contentDescription = stringResource(R.string.cd_back),
                                     )
                                 }
-                            }
+                            },
                         )
-                    }
+                    },
                 ) { padding ->
                     if (lines.isEmpty()) {
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(padding),
-                            contentAlignment = Alignment.Center
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(padding),
+                            contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 text = stringResource(R.string.logs_empty),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(padding)
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(padding),
                         ) {
                             items(lines) { line ->
                                 LogRow(line, timeFormat.format(Date(line.timeMs)))
@@ -85,45 +86,50 @@ class LogsActivity : ComponentActivity() {
 }
 
 @Composable
-private fun LogRow(line: AppLog.Line, time: String) {
-    val levelColor = when (line.level) {
-        AppLog.Level.Debug -> MaterialTheme.colorScheme.onSurfaceVariant
-        AppLog.Level.Info -> MaterialTheme.colorScheme.primary
-        AppLog.Level.Warn -> Color(0xFFB26A00)
-        AppLog.Level.Error -> MaterialTheme.colorScheme.error
-    }
+private fun LogRow(
+    line: AppLog.Line,
+    time: String,
+) {
+    val levelColor =
+        when (line.level) {
+            AppLog.Level.Debug -> MaterialTheme.colorScheme.onSurfaceVariant
+            AppLog.Level.Info -> MaterialTheme.colorScheme.primary
+            AppLog.Level.Warn -> Color(0xFFB26A00)
+            AppLog.Level.Error -> MaterialTheme.colorScheme.error
+        }
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = time,
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = line.level.name.take(1),
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
-                color = levelColor
+                color = levelColor,
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = line.tag,
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Text(
             text = line.message,
             fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))

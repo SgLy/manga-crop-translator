@@ -3,7 +3,9 @@ package me.sgly.translator
 import android.content.Context
 import android.content.SharedPreferences
 
-class SettingsManager(context: Context) {
+class SettingsManager(
+    context: Context,
+) {
     private val prefs: SharedPreferences = context.getSharedPreferences("api_settings", Context.MODE_PRIVATE)
 
     var visualModelApiBase: String
@@ -47,9 +49,11 @@ class SettingsManager(context: Context) {
 
     /** Parsed thinking ladder, e.g. "low,high,max" → [low, high, max]. */
     val thinkingLevelList: List<String>
-        get() = thinkingLevels.split(Regex("[^a-zA-Z]+"))
-            .filter { it.isNotBlank() }
-            .ifEmpty { listOf("low", "high", "max") }
+        get() =
+            thinkingLevels
+                .split(Regex("[^a-zA-Z]+"))
+                .filter { it.isNotBlank() }
+                .ifEmpty { listOf("low", "high", "max") }
 
     /** Last floating-button position (TOP|START gravity). -1 means "not set yet". */
     var fabX: Int

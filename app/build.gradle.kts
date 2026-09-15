@@ -42,34 +42,39 @@ abstract class GeneratePromptsTask : DefaultTask() {
         // Prompts are text: normalize CRLF (a checkout may use it) and drop the trailing newline.
         fun normalize(text: String) = text.replace("\r\n", "\n").trimEnd('\n')
 
-        fun promptProperty(name: String, raw: String) =
-            PropertySpec.builder(name, String::class)
-                .initializer("%S", normalize(raw))
-                .build()
+        fun promptProperty(
+            name: String,
+            raw: String,
+        ) = PropertySpec
+            .builder(name, String::class)
+            .initializer("%S", normalize(raw))
+            .build()
 
         val markdown = promptMarkdown.files.associateBy { it.name }
 
-        FileSpec.builder("me.sgly.translator", "Prompts")
+        FileSpec
+            .builder("me.sgly.translator", "Prompts")
             .addFileComment("Generated from prompts/*.md at build time. Do not edit.")
             .addType(
-                TypeSpec.objectBuilder("Prompts")
+                TypeSpec
+                    .objectBuilder("Prompts")
                     .addModifiers(KModifier.INTERNAL)
                     .addProperty(promptProperty("VISUAL", markdown.getValue("visual.md").readText()))
                     .addProperty(promptProperty("TRANSLATE", markdown.getValue("translate.md").readText()))
                     .build(),
-            )
-            .build()
+            ).build()
             .writeTo(outputDirectory.get().asFile)
     }
 }
 
 val promptsDirectory = layout.projectDirectory.dir("src/main/java/me/sgly/translator/prompts")
 
-val generatePrompts = tasks.register<GeneratePromptsTask>("generatePrompts") {
-    promptMarkdown.from(promptsDirectory.file("visual.md"))
-    promptMarkdown.from(promptsDirectory.file("translate.md"))
-    outputDirectory.set(layout.buildDirectory.dir("generated/prompts"))
-}
+val generatePrompts =
+    tasks.register<GeneratePromptsTask>("generatePrompts") {
+        promptMarkdown.from(promptsDirectory.file("visual.md"))
+        promptMarkdown.from(promptsDirectory.file("translate.md"))
+        outputDirectory.set(layout.buildDirectory.dir("generated/prompts"))
+    }
 
 androidComponents {
     onVariants { variant ->
@@ -137,10 +142,9 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    
+
     // Networking and JSON
     implementation(libs.okhttp)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.org.json)
 }
-

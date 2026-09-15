@@ -1,7 +1,7 @@
 package me.sgly.translator
 
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 @Serializable
@@ -14,31 +14,35 @@ data class OpenAIChatRequest(
     val stream: Boolean? = null,
     @SerialName("stream_options") val streamOptions: OpenAIStreamOptions? = null,
     val thinking: OpenAIThinkingConfig? = null,
-    @SerialName("reasoning_effort") val reasoningEffort: String? = null
+    @SerialName("reasoning_effort") val reasoningEffort: String? = null,
 )
 
 @Serializable
 data class OpenAIChatMessage(
     val role: String,
-    val content: JsonElement // String or JsonArray for image
+    val content: JsonElement, // String or JsonArray for image
 )
 
 @Serializable
-data class OpenAIThinkingConfig(val type: String)
+data class OpenAIThinkingConfig(
+    val type: String,
+)
 
 /** Asks an OpenAI-compatible server to append a final SSE chunk carrying the token usage. */
 @Serializable
-data class OpenAIStreamOptions(@SerialName("include_usage") val includeUsage: Boolean)
+data class OpenAIStreamOptions(
+    @SerialName("include_usage") val includeUsage: Boolean,
+)
 
 @Serializable
 data class OpenAITool(
     val type: String,
-    val function: OpenAIFunction
+    val function: OpenAIFunction,
 )
 
 @Serializable
 data class OpenAIFunction(
     val name: String,
     val description: String? = null,
-    val parameters: JsonElement? = null
+    val parameters: JsonElement? = null,
 )

@@ -12,7 +12,9 @@ import android.util.DisplayMetrics
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-class ScreenCaptureManager(private val context: Context) {
+class ScreenCaptureManager(
+    private val context: Context,
+) {
     private var mediaProjection: MediaProjection? = null
     private var imageReader: ImageReader? = null
     private var virtualDisplay: VirtualDisplay? = null
@@ -25,16 +27,17 @@ class ScreenCaptureManager(private val context: Context) {
      */
     var onCapturedContentVisibilityChanged: ((Boolean) -> Unit)? = null
 
-    private val projectionCallback = object : MediaProjection.Callback() {
-        override fun onCapturedContentVisibilityChanged(isVisible: Boolean) {
-            AppLog.d("ScreenCapture") { "capturedContentVisible=$isVisible" }
-            onCapturedContentVisibilityChanged?.invoke(isVisible)
-        }
+    private val projectionCallback =
+        object : MediaProjection.Callback() {
+            override fun onCapturedContentVisibilityChanged(isVisible: Boolean) {
+                AppLog.d("ScreenCapture") { "capturedContentVisible=$isVisible" }
+                onCapturedContentVisibilityChanged?.invoke(isVisible)
+            }
 
-        override fun onStop() {
-            AppLog.d("ScreenCapture") { "MediaProjection stopped" }
+            override fun onStop() {
+                AppLog.d("ScreenCapture") { "MediaProjection stopped" }
+            }
         }
-    }
 
     private val _screenCaptureFlow = MutableSharedFlow<Bitmap>(extraBufferCapacity = 1)
     val screenCaptureFlow = _screenCaptureFlow.asSharedFlow()
@@ -51,7 +54,11 @@ class ScreenCaptureManager(private val context: Context) {
         ensureVirtualDisplay()
     }
 
-    private data class ScreenSpec(val width: Int, val height: Int, val density: Int)
+    private data class ScreenSpec(
+        val width: Int,
+        val height: Int,
+        val density: Int,
+    )
 
     private fun screenSpec(): ScreenSpec {
         val metrics = DisplayMetrics()
@@ -74,16 +81,17 @@ class ScreenCaptureManager(private val context: Context) {
         val spec = screenSpec()
         val reader = newImageReader(spec)
         imageReader = reader
-        virtualDisplay = mp.createVirtualDisplay(
-            "ScreenCapture",
-            spec.width,
-            spec.height,
-            spec.density,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            reader.surface,
-            null,
-            null
-        )
+        virtualDisplay =
+            mp.createVirtualDisplay(
+                "ScreenCapture",
+                spec.width,
+                spec.height,
+                spec.density,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                reader.surface,
+                null,
+                null,
+            )
         AppLog.d("ScreenCapture") { "createVirtualDisplay -> ${virtualDisplay != null} (${spec.width}x${spec.height})" }
     }
 
@@ -110,7 +118,10 @@ class ScreenCaptureManager(private val context: Context) {
         return true
     }
 
-    private fun onImageAvailable(reader: ImageReader, spec: ScreenSpec) {
+    private fun onImageAvailable(
+        reader: ImageReader,
+        spec: ScreenSpec,
+    ) {
         // Always acquire and close to keep the buffer free; only process when requested.
         val image: Image? = reader.acquireLatestImage()
         if (image == null) {
@@ -127,18 +138,20 @@ class ScreenCaptureManager(private val context: Context) {
             val rowStride = planes[0].rowStride
             val rowPadding = rowStride - pixelStride * spec.width
 
-            val bitmap = Bitmap.createBitmap(
-                spec.width + rowPadding / pixelStride,
-                spec.height,
-                Bitmap.Config.ARGB_8888
-            )
+            val bitmap =
+                Bitmap.createBitmap(
+                    spec.width + rowPadding / pixelStride,
+                    spec.height,
+                    Bitmap.Config.ARGB_8888,
+                )
             bitmap.copyPixelsFromBuffer(buffer)
 
-            val finalBitmap = if (rowPadding > 0) {
-                Bitmap.createBitmap(bitmap, 0, 0, spec.width, spec.height)
-            } else {
-                bitmap
-            }
+            val finalBitmap =
+                if (rowPadding > 0) {
+                    Bitmap.createBitmap(bitmap, 0, 0, spec.width, spec.height)
+                } else {
+                    bitmap
+                }
 
             val emitted = _screenCaptureFlow.tryEmit(finalBitmap)
             AppLog.d("ScreenCapture") { "frame ${finalBitmap.width}x${finalBitmap.height} emitted=$emitted" }

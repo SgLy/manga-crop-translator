@@ -16,15 +16,20 @@ import org.junit.Test
  * as URLs and reject them. buildToolParameters() must strip them and inline all refs.
  */
 class ToolSchemaTest {
-
     private fun collectKeys(element: kotlinx.serialization.json.JsonElement): List<String> =
         buildList {
             when (element) {
-                is JsonObject -> element.forEach { (k, v) ->
-                    add(k)
-                    addAll(collectKeys(v))
+                is JsonObject -> {
+                    element.forEach { (k, v) ->
+                        add(k)
+                        addAll(collectKeys(v))
+                    }
                 }
-                is JsonArray -> element.forEach { addAll(collectKeys(it)) }
+
+                is JsonArray -> {
+                    element.forEach { addAll(collectKeys(it)) }
+                }
+
                 else -> {}
             }
         }

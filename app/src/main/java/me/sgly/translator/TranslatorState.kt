@@ -9,40 +9,39 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class AppPhase {
-    Idle,        // FAB visible, waiting for user
-    Capturing,   // FAB hidden, waiting for screen frame
-    Cropping,    // Crop overlay visible, user selecting region
+    Idle, // FAB visible, waiting for user
+    Capturing, // FAB hidden, waiting for screen frame
+    Cropping, // Crop overlay visible, user selecting region
     Recognizing, // Result sheet open, OCR in progress
-    Parsing,     // Result sheet open, TranslateModel in progress
-    Done,        // Result sheet open, both steps complete
-    OcrError,    // Result sheet open, OCR failed
-    TranslateError     // Result sheet open, TranslateModel failed (OCR result preserved)
+    Parsing, // Result sheet open, TranslateModel in progress
+    Done, // Result sheet open, both steps complete
+    OcrError, // Result sheet open, OCR failed
+    TranslateError, // Result sheet open, TranslateModel failed (OCR result preserved)
 }
 
 enum class TransitionReason {
-    FabClicked,    // Idle → Capturing
+    FabClicked, // Idle → Capturing
     FrameCaptured, // Capturing → Cropping
-    CaptureError,  // Capturing → Idle (mediaProjection not ready)
-    CropSelected,  // Cropping → Recognizing
+    CaptureError, // Capturing → Idle (mediaProjection not ready)
+    CropSelected, // Cropping → Recognizing
     CropCancelled, // Cropping → Idle
-    OcrSuccess,    // Recognizing → Parsing
-    OcrFailed,     // Recognizing → OcrError
-    TranslateSuccess,    // Parsing → Done
-    TranslateFailed,     // Parsing → TranslateError
-    ThinkHarder,   // Done → Recognizing (re-run everything, same crop)
-    Retry,         // OcrError → Recognizing; TranslateError → Parsing
-    Dismiss,       // Done/OcrError/TranslateError → Idle
-    Reset          // any → Idle (triggered from MainActivity on fresh start)
+    OcrSuccess, // Recognizing → Parsing
+    OcrFailed, // Recognizing → OcrError
+    TranslateSuccess, // Parsing → Done
+    TranslateFailed, // Parsing → TranslateError
+    ThinkHarder, // Done → Recognizing (re-run everything, same crop)
+    Retry, // OcrError → Recognizing; TranslateError → Parsing
+    Dismiss, // Done/OcrError/TranslateError → Idle
+    Reset, // any → Idle (triggered from MainActivity on fresh start)
 }
 
 data class Transition(
     val from: AppPhase,
     val to: AppPhase,
-    val reason: TransitionReason
+    val reason: TransitionReason,
 )
 
 object TranslatorState {
-
     private val _phase = MutableStateFlow(AppPhase.Idle)
     val phase: StateFlow<AppPhase> = _phase.asStateFlow()
 
@@ -72,8 +71,7 @@ object TranslatorState {
     }
 
     /** Effort token for the current level, e.g. "high". */
-    fun currentThinkingEffort(): String =
-        thinkingLevels.getOrElse(_thinkingLevelIndex.value) { thinkingLevels.last() }
+    fun currentThinkingEffort(): String = thinkingLevels.getOrElse(_thinkingLevelIndex.value) { thinkingLevels.last() }
 
     private fun escalateThinking() {
         _thinkingLevelIndex.value =
@@ -95,10 +93,21 @@ object TranslatorState {
     val errorText: StateFlow<String> = _errorText.asStateFlow()
 
     // Data setters — call before transition() so UI sees consistent state on phase change
-    fun setOcrResult(result: OcrResult) { _ocrResult.value = result }
-    fun setTranslationResult(result: TranslationResult) { _translationResult.value = result }
-    fun setErrorText(text: String) { _errorText.value = text }
-    fun setCapturedContentVisible(visible: Boolean) { _capturedContentVisible.value = visible }
+    fun setOcrResult(result: OcrResult) {
+        _ocrResult.value = result
+    }
+
+    fun setTranslationResult(result: TranslationResult) {
+        _translationResult.value = result
+    }
+
+    fun setErrorText(text: String) {
+        _errorText.value = text
+    }
+
+    fun setCapturedContentVisible(visible: Boolean) {
+        _capturedContentVisible.value = visible
+    }
 
     /**
      * Called with every streamed output delta of the in-flight request. Only the first one matters:
@@ -117,7 +126,10 @@ object TranslatorState {
      * The single entry point for all state transitions.
      * Applies data-clearing rules appropriate to the reason, then updates phase.
      */
-    fun transition(to: AppPhase, reason: TransitionReason) {
+    fun transition(
+        to: AppPhase,
+        reason: TransitionReason,
+    ) {
         val from = _phase.value
         AppLog.i("TranslatorState", "$from → $to [$reason]")
         when (reason) {
@@ -125,6 +137,7 @@ object TranslatorState {
                 // A new capture session starts: reset to the base thinking level
                 _thinkingLevelIndex.value = 0
             }
+
             TransitionReason.ThinkHarder -> {
                 // Re-run OCR with same crop: clear both results and think harder
                 _ocrResult.value = null
@@ -132,6 +145,7 @@ object TranslatorState {
                 _errorText.value = ""
                 escalateThinking()
             }
+
             TransitionReason.Retry -> {
                 _errorText.value = ""
                 _translationResult.value = null
@@ -139,10 +153,12 @@ object TranslatorState {
                 if (from == AppPhase.OcrError) _ocrResult.value = null
                 // TranslateError retry preserves ocrResult (only re-runs TranslateModel)
             }
+
             TransitionReason.Dismiss,
             TransitionReason.CropCancelled,
             TransitionReason.CaptureError,
-            TransitionReason.Reset -> {
+            TransitionReason.Reset,
+            -> {
                 capturedBitmap = null
                 croppedBitmap = null
                 _ocrResult.value = null
@@ -150,6 +166,7 @@ object TranslatorState {
                 _errorText.value = ""
                 _thinkingLevelIndex.value = 0
             }
+
             else -> {}
         }
         // Entering a streaming phase means a new request is starting: nothing has arrived yet.

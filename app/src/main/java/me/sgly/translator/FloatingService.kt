@@ -47,8 +47,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
-
+class FloatingService :
+    Service(),
+    LifecycleOwner,
+    SavedStateRegistryOwner {
     private lateinit var windowManager: WindowManager
     private lateinit var floatingView: View
     private lateinit var screenCaptureManager: ScreenCaptureManager
@@ -57,9 +59,14 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private lateinit var settingsManager: SettingsManager
 
     /** Phases in which the result sheet is the intended on-screen UI. */
-    private val resultPhases = setOf(
-        AppPhase.Recognizing, AppPhase.Parsing, AppPhase.Done, AppPhase.OcrError, AppPhase.TranslateError
-    )
+    private val resultPhases =
+        setOf(
+            AppPhase.Recognizing,
+            AppPhase.Parsing,
+            AppPhase.Done,
+            AppPhase.OcrError,
+            AppPhase.TranslateError,
+        )
 
     private val serviceScope = CoroutineScope(Dispatchers.Main)
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -126,6 +133,7 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                         TranslatorState.capturedBitmap = bitmap
                         TranslatorState.transition(AppPhase.Cropping, TransitionReason.FrameCaptured)
                     }
+
                     AppPhase.Cropping -> {
                         val cropped = overlayScreenManager.showOverlay(TranslatorState.capturedBitmap!!)
                         if (cropped != null) {
@@ -139,15 +147,19 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             TranslatorState.transition(AppPhase.Idle, TransitionReason.CropCancelled)
                         }
                     }
+
                     AppPhase.Recognizing -> {
                         try {
-                            val result = openAIApiClient.extractTextFromImage(
-                                TranslatorState.croppedBitmap!!,
-                                TranslatorState.currentThinkingEffort(),
-                                onOutputDelta = { TranslatorState.onOutputDelta(it) }
-                            )
+                            val result =
+                                openAIApiClient.extractTextFromImage(
+                                    TranslatorState.croppedBitmap!!,
+                                    TranslatorState.currentThinkingEffort(),
+                                    onOutputDelta = { TranslatorState.onOutputDelta(it) },
+                                )
                             if (result.blocks.isEmpty()) {
-                                TranslatorState.setErrorText("OCR returned empty text. Please check if your VisualModel endpoint and model support image inputs.")
+                                TranslatorState.setErrorText(
+                                    "OCR returned empty text. Please check if your VisualModel endpoint and model support image inputs.",
+                                )
                                 TranslatorState.transition(AppPhase.OcrError, TransitionReason.OcrFailed)
                             } else {
                                 TranslatorState.setOcrResult(result)
@@ -158,15 +170,17 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             TranslatorState.transition(AppPhase.OcrError, TransitionReason.OcrFailed)
                         }
                     }
+
                     AppPhase.Parsing -> {
                         try {
                             val prettyJson = kotlinx.serialization.json.Json { prettyPrint = true }
                             val ocrText = prettyJson.encodeToString(OcrResult.serializer(), TranslatorState.ocrResult.value!!)
-                            val result = openAIApiClient.translateText(
-                                ocrText,
-                                TranslatorState.currentThinkingEffort(),
-                                onOutputDelta = { TranslatorState.onOutputDelta(it) }
-                            )
+                            val result =
+                                openAIApiClient.translateText(
+                                    ocrText,
+                                    TranslatorState.currentThinkingEffort(),
+                                    onOutputDelta = { TranslatorState.onOutputDelta(it) },
+                                )
                             TranslatorState.setTranslationResult(result)
                             TranslatorState.transition(AppPhase.Done, TransitionReason.TranslateSuccess)
                         } catch (e: Exception) {
@@ -174,13 +188,18 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             TranslatorState.transition(AppPhase.TranslateError, TransitionReason.TranslateFailed)
                         }
                     }
+
                     else -> { /* Idle/Done/OcrError/TranslateError: UI handles these */ }
                 }
             }
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         val notification = createNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
@@ -216,33 +235,34 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 
-        val composeView = ComposeView(this).apply {
-            setContent {
-                FabButton()
+        val composeView =
+            ComposeView(this).apply {
+                setContent {
+                    FabButton()
+                }
+                isClickable = false
+                isFocusable = false
             }
-            isClickable = false
-            isFocusable = false
-        }
 
-        val frameLayout = object : FrameLayout(this) {
-            override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-                return true
+        val frameLayout =
+            object : FrameLayout(this) {
+                override fun onInterceptTouchEvent(ev: MotionEvent): Boolean = true
+            }.apply {
+                clipChildren = false
+                clipToPadding = false
+                setViewTreeLifecycleOwner(this@FloatingService)
+                setViewTreeSavedStateRegistryOwner(this@FloatingService)
+                addView(composeView, FrameLayout.LayoutParams(fabSize, fabSize, Gravity.CENTER))
             }
-        }.apply {
-            clipChildren = false
-            clipToPadding = false
-            setViewTreeLifecycleOwner(this@FloatingService)
-            setViewTreeSavedStateRegistryOwner(this@FloatingService)
-            addView(composeView, FrameLayout.LayoutParams(fabSize, fabSize, Gravity.CENTER))
-        }
 
-        val params = LayoutParams(
-            containerSize,
-            containerSize,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) LayoutParams.TYPE_APPLICATION_OVERLAY else LayoutParams.TYPE_PHONE,
-            LayoutParams.FLAG_NOT_FOCUSABLE or LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
-        )
+        val params =
+            LayoutParams(
+                containerSize,
+                containerSize,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) LayoutParams.TYPE_APPLICATION_OVERLAY else LayoutParams.TYPE_PHONE,
+                LayoutParams.FLAG_NOT_FOCUSABLE or LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT,
+            )
         params.gravity = Gravity.TOP or Gravity.START
 
         val metrics = resources.displayMetrics
@@ -262,50 +282,57 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             params.y = (metrics.heightPixels - containerSize - bottomMargin).coerceIn(0, maxY)
         }
 
-        frameLayout.setOnTouchListener(object : View.OnTouchListener {
-            private var initialX = 0
-            private var initialY = 0
-            private var initialTouchX = 0f
-            private var initialTouchY = 0f
-            private var isDragging = false
+        frameLayout.setOnTouchListener(
+            object : View.OnTouchListener {
+                private var initialX = 0
+                private var initialY = 0
+                private var initialTouchX = 0f
+                private var initialTouchY = 0f
+                private var isDragging = false
 
-            override fun onTouch(v: View, event: MotionEvent): Boolean {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        initialX = params.x
-                        initialY = params.y
-                        initialTouchX = event.rawX
-                        initialTouchY = event.rawY
-                        isDragging = false
-                        return true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        val dx = event.rawX - initialTouchX
-                        val dy = event.rawY - initialTouchY
-                        if (kotlin.math.abs(dx) > 10 || kotlin.math.abs(dy) > 10) {
-                            isDragging = true
+                override fun onTouch(
+                    v: View,
+                    event: MotionEvent,
+                ): Boolean {
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            initialX = params.x
+                            initialY = params.y
+                            initialTouchX = event.rawX
+                            initialTouchY = event.rawY
+                            isDragging = false
+                            return true
                         }
-                        if (isDragging) {
-                            params.x = initialX + dx.toInt()
-                            params.y = initialY + dy.toInt()
-                            windowManager.updateViewLayout(floatingView, params)
+
+                        MotionEvent.ACTION_MOVE -> {
+                            val dx = event.rawX - initialTouchX
+                            val dy = event.rawY - initialTouchY
+                            if (kotlin.math.abs(dx) > 10 || kotlin.math.abs(dy) > 10) {
+                                isDragging = true
+                            }
+                            if (isDragging) {
+                                params.x = initialX + dx.toInt()
+                                params.y = initialY + dy.toInt()
+                                windowManager.updateViewLayout(floatingView, params)
+                            }
+                            return true
                         }
-                        return true
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        if (!isDragging) {
-                            TranslatorState.transition(AppPhase.Capturing, TransitionReason.FabClicked)
-                        } else {
-                            // Persist the dragged position so it survives restarts.
-                            settingsManager.fabX = params.x
-                            settingsManager.fabY = params.y
+
+                        MotionEvent.ACTION_UP -> {
+                            if (!isDragging) {
+                                TranslatorState.transition(AppPhase.Capturing, TransitionReason.FabClicked)
+                            } else {
+                                // Persist the dragged position so it survives restarts.
+                                settingsManager.fabX = params.x
+                                settingsManager.fabY = params.y
+                            }
+                            return true
                         }
-                        return true
                     }
+                    return false
                 }
-                return false
-            }
-        })
+            },
+        )
 
         floatingView = frameLayout
         windowManager.addView(floatingView, params)
@@ -323,13 +350,14 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     }
 
     private fun showResultSheet(clearTask: Boolean = false) {
-        val intent = Intent(this, ResultActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
-            // Re-launching a still-alive singleInstance task only "delivers to top" and never
-            // comes to the foreground (observed on HyperOS). Clearing the task first forces a
-            // fresh, visible launch instead of reusing the orphaned background instance.
-            addFlags(if (clearTask) Intent.FLAG_ACTIVITY_CLEAR_TASK else Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
+        val intent =
+            Intent(this, ResultActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                // Re-launching a still-alive singleInstance task only "delivers to top" and never
+                // comes to the foreground (observed on HyperOS). Clearing the task first forces a
+                // fresh, visible launch instead of reusing the orphaned background instance.
+                addFlags(if (clearTask) Intent.FLAG_ACTIVITY_CLEAR_TASK else Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
         startActivity(intent)
     }
 
@@ -354,12 +382,14 @@ class FloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     }
 
     private fun createNotification(): Notification {
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, "floating_service")
-        } else {
-            Notification.Builder(this)
-        }
-        return builder.setContentTitle("Manga Translator Active")
+        val builder =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Notification.Builder(this, "floating_service")
+            } else {
+                Notification.Builder(this)
+            }
+        return builder
+            .setContentTitle("Manga Translator Active")
             .setContentText("Ready to translate manga panels.")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .build()
@@ -374,16 +404,16 @@ private fun FabButton() {
             shadowElevation = 6.dp,
             color = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(56.dp)
+            modifier = Modifier.size(56.dp),
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = androidx.compose.ui.Alignment.Center
+                contentAlignment = androidx.compose.ui.Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Translate,
                     contentDescription = "Translate",
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

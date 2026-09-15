@@ -14,7 +14,6 @@ import android.util.Log
  * cheap — e.g. sanitising a huge base64 request body costs nothing until you open the logs.
  */
 object AppLog {
-
     private const val MAX_ENTRIES = 100
     private const val LOGCAT_CHUNK = 3500
 
@@ -24,7 +23,7 @@ object AppLog {
         val timeMs: Long,
         val level: Level,
         val tag: String,
-        val producer: () -> String
+        val producer: () -> String,
     )
 
     /** A fully-resolved log line, ready for display. */
@@ -32,7 +31,7 @@ object AppLog {
         val timeMs: Long,
         val level: Level,
         val tag: String,
-        val message: String
+        val message: String,
     )
 
     private val buffer = ArrayDeque<Entry>(MAX_ENTRIES)
@@ -42,20 +41,57 @@ object AppLog {
     @Volatile
     var forwardToLogcat: Boolean = false
 
-    fun d(tag: String, message: String) = log(Level.Debug, tag) { message }
-    fun i(tag: String, message: String) = log(Level.Info, tag) { message }
-    fun w(tag: String, message: String) = log(Level.Warn, tag) { message }
-    fun e(tag: String, message: String) = log(Level.Error, tag) { message }
+    fun d(
+        tag: String,
+        message: String,
+    ) = log(Level.Debug, tag) { message }
 
-    fun d(tag: String, message: () -> String) = log(Level.Debug, tag, message)
-    fun i(tag: String, message: () -> String) = log(Level.Info, tag, message)
-    fun w(tag: String, message: () -> String) = log(Level.Warn, tag, message)
-    fun e(tag: String, message: () -> String) = log(Level.Error, tag, message)
+    fun i(
+        tag: String,
+        message: String,
+    ) = log(Level.Info, tag) { message }
 
-    fun e(tag: String, message: String, throwable: Throwable) =
-        log(Level.Error, tag) { "$message\n${Log.getStackTraceString(throwable)}" }
+    fun w(
+        tag: String,
+        message: String,
+    ) = log(Level.Warn, tag) { message }
 
-    private fun log(level: Level, tag: String, producer: () -> String) {
+    fun e(
+        tag: String,
+        message: String,
+    ) = log(Level.Error, tag) { message }
+
+    fun d(
+        tag: String,
+        message: () -> String,
+    ) = log(Level.Debug, tag, message)
+
+    fun i(
+        tag: String,
+        message: () -> String,
+    ) = log(Level.Info, tag, message)
+
+    fun w(
+        tag: String,
+        message: () -> String,
+    ) = log(Level.Warn, tag, message)
+
+    fun e(
+        tag: String,
+        message: () -> String,
+    ) = log(Level.Error, tag, message)
+
+    fun e(
+        tag: String,
+        message: String,
+        throwable: Throwable,
+    ) = log(Level.Error, tag) { "$message\n${Log.getStackTraceString(throwable)}" }
+
+    private fun log(
+        level: Level,
+        tag: String,
+        producer: () -> String,
+    ) {
         if (forwardToLogcat) {
             // Build once, ship it to logcat, and cache the result for the in-app viewer.
             val message = producer()
@@ -83,7 +119,11 @@ object AppLog {
     /** Newest first. Resolves producers; call from a background thread. */
     fun snapshotNewestFirst(): List<Line> = snapshot().asReversed()
 
-    private fun writeToLogcat(level: Level, tag: String, message: String) {
+    private fun writeToLogcat(
+        level: Level,
+        tag: String,
+        message: String,
+    ) {
         if (message.length <= LOGCAT_CHUNK) {
             write(level, tag, message)
             return
@@ -97,7 +137,11 @@ object AppLog {
         }
     }
 
-    private fun write(level: Level, tag: String, message: String) {
+    private fun write(
+        level: Level,
+        tag: String,
+        message: String,
+    ) {
         when (level) {
             Level.Debug -> Log.d(tag, message)
             Level.Info -> Log.i(tag, message)

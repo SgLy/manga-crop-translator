@@ -41,7 +41,6 @@ import me.sgly.translator.ui.theme.CropTranslatorTheme
 
 /** Everything ever recorded about one word, newest sighting first. */
 class VocabularyDetailActivity : ComponentActivity() {
-
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,31 +60,32 @@ class VocabularyDetailActivity : ComponentActivity() {
                                 IconButton(onClick = { finish() }) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = stringResource(R.string.cd_back)
+                                        contentDescription = stringResource(R.string.cd_back),
                                     )
                                 }
-                            }
+                            },
                         )
-                    }
+                    },
                 ) { innerPadding ->
                     val loaded = word
                     if (loaded != null) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(innerPadding)
-                                .padding(horizontal = 20.dp)
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(innerPadding)
+                                    .padding(horizontal = 20.dp),
                         ) {
                             // Outside the list, so a long history scrolls under a headword that stays put.
                             HeadwordRow(loaded.word)
                             Spacer(modifier = Modifier.height(80.dp))
                             LazyColumn(
                                 modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(bottom = 24.dp)
+                                contentPadding = PaddingValues(bottom = 24.dp),
                             ) {
                                 itemsIndexed(
                                     items = loaded.entries.sortedByDescending { it.createdAt },
-                                    key = { _, entry -> entry.id }
+                                    key = { _, entry -> entry.id },
                                 ) { index, entry ->
                                     if (index > 0) {
                                         Spacer(modifier = Modifier.height(28.dp))
@@ -113,7 +113,7 @@ private fun HeadwordRow(word: VocabularyWord) {
             text = word.lemma,
             fontSize = 30.sp,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.alignByBaseline()
+            modifier = Modifier.alignByBaseline(),
         )
         if (word.origin.isNotEmpty()) {
             Spacer(modifier = Modifier.width(10.dp))
@@ -121,7 +121,7 @@ private fun HeadwordRow(word: VocabularyWord) {
                 text = word.origin,
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.alignByBaseline()
+                modifier = Modifier.alignByBaseline(),
             )
         }
     }
@@ -137,31 +137,32 @@ private fun EntryRow(entry: VocabularyEntry) {
                 fontSize = 17.sp,
                 lineHeight = 22.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = formatAddedAt(entry.createdAt),
                 fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = sentenceWithSurfaceHighlighted(
-                sentence = entry.sentence,
-                surface = entry.surface,
-                highlight = MaterialTheme.colorScheme.primary
-            ),
+            text =
+                sentenceWithSurfaceHighlighted(
+                    sentence = entry.sentence,
+                    surface = entry.surface,
+                    highlight = MaterialTheme.colorScheme.primary,
+                ),
             fontSize = 15.sp,
-            lineHeight = 22.sp
+            lineHeight = 22.sp,
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = entry.translation,
             fontSize = 13.sp,
             lineHeight = 18.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -170,7 +171,7 @@ private fun EntryRow(entry: VocabularyEntry) {
 private fun sentenceWithSurfaceHighlighted(
     sentence: String,
     surface: String,
-    highlight: Color
+    highlight: Color,
 ) = buildAnnotatedString {
     val index = sentence.indexOf(surface)
     if (index < 0) {
@@ -185,4 +186,6 @@ private fun sentenceWithSurfaceHighlighted(
 }
 
 private fun formatAddedAt(millis: Long): String =
-    android.text.format.DateFormat.format("yyyy-MM-dd HH:mm", millis).toString()
+    android.text.format.DateFormat
+        .format("yyyy-MM-dd HH:mm", millis)
+        .toString()

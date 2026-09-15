@@ -23,7 +23,7 @@ data class VocabularyWord(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val lemma: String,
     /** Etymology as reported by the model, e.g. "karte[德]"; empty when the word is not a loanword. */
-    val origin: String
+    val origin: String,
 )
 
 /** One sighting of a [VocabularyWord], in the sentence that produced it. */
@@ -34,10 +34,10 @@ data class VocabularyWord(
             entity = VocabularyWord::class,
             parentColumns = ["id"],
             childColumns = ["wordId"],
-            onDelete = ForeignKey.CASCADE
-        )
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
-    indices = [Index("wordId")]
+    indices = [Index("wordId")],
 )
 data class VocabularyEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -47,7 +47,7 @@ data class VocabularyEntry(
     val definition: String,
     val sentence: String,
     val translation: String,
-    val createdAt: Long
+    val createdAt: Long,
 )
 
 /**
@@ -63,7 +63,7 @@ data class VocabularyOccurrence(
     val surface: String,
     val definition: String,
     val sentence: String,
-    val translation: String
+    val translation: String,
 )
 
 /** One card of the vocabulary list: the headword, the meanings it has carried, and how often it was recorded. */
@@ -72,19 +72,18 @@ data class VocabularySummary(
     val lemma: String,
     /** Up to three meanings joined by '、', the most frequently recorded one first. */
     val definitions: String,
-    val entryCount: Int
+    val entryCount: Int,
 )
 
 /** A headword together with every sighting of it. [entries] comes back unordered; callers sort it. */
 data class VocabularyWordWithEntries(
     @Embedded val word: VocabularyWord,
     @Relation(parentColumn = "id", entityColumn = "wordId")
-    val entries: List<VocabularyEntry>
+    val entries: List<VocabularyEntry>,
 )
 
 @Dao
 abstract class VocabularyDao {
-
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     internal abstract suspend fun insertWordIfAbsent(word: VocabularyWord): Long
 
@@ -102,16 +101,18 @@ abstract class VocabularyDao {
     @Transaction
     open suspend fun record(occurrences: List<VocabularyOccurrence>) {
         for (occurrence in occurrences) {
-            val inserted = insertWordIfAbsent(
-                VocabularyWord(lemma = occurrence.lemma, origin = occurrence.origin)
-            )
+            val inserted =
+                insertWordIfAbsent(
+                    VocabularyWord(lemma = occurrence.lemma, origin = occurrence.origin),
+                )
             // -1 means the unique lemma index rejected the insert, so the headword row already exists.
-            val wordId = if (inserted != -1L) {
-                inserted
-            } else {
-                wordIdOf(occurrence.lemma)
-                    ?: error("vocabulary_word row for '${occurrence.lemma}' vanished mid-transaction")
-            }
+            val wordId =
+                if (inserted != -1L) {
+                    inserted
+                } else {
+                    wordIdOf(occurrence.lemma)
+                        ?: error("vocabulary_word row for '${occurrence.lemma}' vanished mid-transaction")
+                }
             insertEntry(
                 VocabularyEntry(
                     wordId = wordId,
@@ -119,8 +120,8 @@ abstract class VocabularyDao {
                     definition = occurrence.definition,
                     sentence = occurrence.sentence,
                     translation = occurrence.translation,
-                    createdAt = System.currentTimeMillis()
-                )
+                    createdAt = System.currentTimeMillis(),
+                ),
             )
         }
     }
@@ -144,7 +145,7 @@ abstract class VocabularyDao {
                (SELECT COUNT(*) FROM vocabulary_entry e WHERE e.wordId = w.id) AS entryCount
         FROM vocabulary_word w
         ORDER BY (SELECT MAX(e.createdAt) FROM vocabulary_entry e WHERE e.wordId = w.id) DESC
-        """
+        """,
     )
     abstract fun summaries(): Flow<List<VocabularySummary>>
 
@@ -157,10 +158,9 @@ abstract class VocabularyDao {
 @Database(
     entities = [VocabularyWord::class, VocabularyEntry::class],
     version = 1,
-    exportSchema = false
+    exportSchema = false,
 )
 abstract class VocabularyDatabase : RoomDatabase() {
-
     abstract fun vocabularyDao(): VocabularyDao
 
     companion object {
@@ -169,11 +169,13 @@ abstract class VocabularyDatabase : RoomDatabase() {
 
         fun get(context: Context): VocabularyDatabase =
             instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    VocabularyDatabase::class.java,
-                    "vocabulary.db"
-                ).build().also { instance = it }
+                instance ?: Room
+                    .databaseBuilder(
+                        context.applicationContext,
+                        VocabularyDatabase::class.java,
+                        "vocabulary.db",
+                    ).build()
+                    .also { instance = it }
             }
     }
 }

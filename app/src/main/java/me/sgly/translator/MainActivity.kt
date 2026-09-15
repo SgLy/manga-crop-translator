@@ -37,37 +37,40 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
+import kotlin.coroutines.cancellation.CancellationException
 
 class MainActivity : ComponentActivity() {
-
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { _ ->
-        checkOverlayAndStart()
-    }
-
-    private val overlayPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { _ ->
-        if (Settings.canDrawOverlays(this)) {
-            requestMediaProjection()
+    private val notificationPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { _ ->
+            checkOverlayAndStart()
         }
-    }
 
-    private val mediaProjectionLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == RESULT_OK && result.data != null) {
-            val serviceIntent = Intent(this, FloatingService::class.java).apply {
-                putExtra("EXTRA_RESULT_DATA", result.data)
-                putExtra("EXTRA_RESULT_CODE", result.resultCode)
+    private val overlayPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { _ ->
+            if (Settings.canDrawOverlays(this)) {
+                requestMediaProjection()
             }
-            startForegroundService(serviceIntent)
         }
-    }
+
+    private val mediaProjectionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            if (result.resultCode == RESULT_OK && result.data != null) {
+                val serviceIntent =
+                    Intent(this, FloatingService::class.java).apply {
+                        putExtra("EXTRA_RESULT_DATA", result.data)
+                        putExtra("EXTRA_RESULT_CODE", result.resultCode)
+                    }
+                startForegroundService(serviceIntent)
+            }
+        }
 
     private lateinit var settingsManager: SettingsManager
 
@@ -83,7 +86,7 @@ class MainActivity : ComponentActivity() {
                 Box(modifier = Modifier.fillMaxSize()) {
                     HomeScreen(
                         onOpenSettings = { showSettings = true },
-                        onStartClicked = { checkPermissionsAndStart() }
+                        onStartClicked = { checkPermissionsAndStart() },
                     )
 
                     if (showSettings) {
@@ -112,9 +115,10 @@ class MainActivity : ComponentActivity() {
                                     showSettings = false
                                 }
                             },
-                            modifier = Modifier.graphicsLayer {
-                                translationX = size.width * progress.value
-                            }
+                            modifier =
+                                Modifier.graphicsLayer {
+                                    translationX = size.width * progress.value
+                                },
                         )
                     }
                 }
@@ -135,10 +139,11 @@ class MainActivity : ComponentActivity() {
 
     private fun checkOverlayAndStart() {
         if (!Settings.canDrawOverlays(this)) {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
-            )
+            val intent =
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName"),
+                )
             overlayPermissionLauncher.launch(intent)
         } else {
             requestMediaProjection()
@@ -155,7 +160,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HomeScreen(
     onOpenSettings: () -> Unit,
-    onStartClicked: () -> Unit
+    onStartClicked: () -> Unit,
 ) {
     val context = LocalContext.current
     val summaries by remember {
@@ -170,38 +175,41 @@ fun HomeScreen(
                     IconButton(onClick = onOpenSettings) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = stringResource(R.string.cd_settings)
+                            contentDescription = stringResource(R.string.cd_settings),
                         )
                     }
-                }
+                },
             )
-        }
+        },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
             ) {
                 if (summaries.isEmpty()) {
                     Text(
                         text = stringResource(R.string.vocabulary_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.align(Alignment.Center)
+                        modifier = Modifier.align(Alignment.Center),
                     )
                 } else {
                     FlowRow(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         summaries.forEach { summary ->
                             VocabularyCard(
@@ -209,9 +217,9 @@ fun HomeScreen(
                                 onClick = {
                                     context.startActivity(
                                         Intent(context, VocabularyDetailActivity::class.java)
-                                            .putExtra(VocabularyDetailActivity.EXTRA_WORD_ID, summary.id)
+                                            .putExtra(VocabularyDetailActivity.EXTRA_WORD_ID, summary.id),
                                     )
-                                }
+                                },
                             )
                         }
                     }
@@ -220,13 +228,14 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = onStartClicked,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
             ) {
                 Text(
                     text = stringResource(R.string.start),
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
             Spacer(modifier = Modifier.height(24.dp))
@@ -236,16 +245,19 @@ fun HomeScreen(
 
 /** One tile of the vocabulary list: the headword, its meanings, and how often it was recorded. */
 @Composable
-private fun VocabularyCard(summary: VocabularySummary, onClick: () -> Unit) {
+private fun VocabularyCard(
+    summary: VocabularySummary,
+    onClick: () -> Unit,
+) {
     Box(modifier = Modifier.widthIn(max = 220.dp)) {
         Surface(
             onClick = onClick,
             shape = MaterialTheme.shapes.medium,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            color = MaterialTheme.colorScheme.surface
+            color = MaterialTheme.colorScheme.surface,
         ) {
             Column(
-                modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 12.dp)
+                modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 12.dp),
             ) {
                 Text(
                     text = summary.lemma,
@@ -254,7 +266,7 @@ private fun VocabularyCard(summary: VocabularySummary, onClick: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     // Leaves room for the count badge sitting in the card's top-right corner.
-                    modifier = Modifier.padding(end = 26.dp)
+                    modifier = Modifier.padding(end = 26.dp),
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -263,23 +275,24 @@ private fun VocabularyCard(summary: VocabularySummary, onClick: () -> Unit) {
                     lineHeight = 17.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
         Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(7.dp)
-                .size(20.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(7.dp)
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = summary.entryCount.toString(),
                 fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
         }
     }
@@ -290,7 +303,7 @@ private fun VocabularyCard(summary: VocabularySummary, onClick: () -> Unit) {
 fun SettingsScreen(
     settingsManager: SettingsManager,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
 
@@ -315,44 +328,54 @@ fun SettingsScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.cd_back)
+                            contentDescription = stringResource(R.string.cd_back),
                         )
                     }
-                }
+                },
             )
-        }
+        },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 24.dp),
         ) {
             // ---- Image recognition model (VisualModel) ----
             SectionTitle(stringResource(R.string.image_recognition_model))
             Text(
                 text = stringResource(R.string.visual_model_hint),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingsField(
                     label = stringResource(R.string.label_base_url),
                     value = visualModelApiBase,
-                    onValueChange = { visualModelApiBase = it; settingsManager.visualModelApiBase = it }
+                    onValueChange = {
+                        visualModelApiBase = it
+                        settingsManager.visualModelApiBase = it
+                    },
                 )
                 SettingsField(
                     label = stringResource(R.string.label_api_key),
                     value = visualModelApiKey,
                     password = true,
-                    onValueChange = { visualModelApiKey = it; settingsManager.visualModelApiKey = it }
+                    onValueChange = {
+                        visualModelApiKey = it
+                        settingsManager.visualModelApiKey = it
+                    },
                 )
                 SettingsField(
                     label = stringResource(R.string.label_model),
                     value = visualModel,
-                    onValueChange = { visualModel = it; settingsManager.visualModel = it }
+                    onValueChange = {
+                        visualModel = it
+                        settingsManager.visualModel = it
+                    },
                 )
             }
 
@@ -361,19 +384,19 @@ fun SettingsScreen(
             // ---- Reuse VisualModel for translation ----
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
                     text = stringResource(R.string.use_visual_model_for_translation),
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
                 Switch(
                     checked = useVisualModelForTranslation,
                     onCheckedChange = {
                         useVisualModelForTranslation = it
                         settingsManager.useVisualModelForTranslation = it
-                    }
+                    },
                 )
             }
 
@@ -386,18 +409,27 @@ fun SettingsScreen(
                     SettingsField(
                         label = stringResource(R.string.label_base_url),
                         value = translateModelApiBase,
-                        onValueChange = { translateModelApiBase = it; settingsManager.translateModelApiBase = it }
+                        onValueChange = {
+                            translateModelApiBase = it
+                            settingsManager.translateModelApiBase = it
+                        },
                     )
                     SettingsField(
                         label = stringResource(R.string.label_api_key),
                         value = translateModelApiKey,
                         password = true,
-                        onValueChange = { translateModelApiKey = it; settingsManager.translateModelApiKey = it }
+                        onValueChange = {
+                            translateModelApiKey = it
+                            settingsManager.translateModelApiKey = it
+                        },
                     )
                     SettingsField(
                         label = stringResource(R.string.label_model),
                         value = translateModel,
-                        onValueChange = { translateModel = it; settingsManager.translateModel = it }
+                        onValueChange = {
+                            translateModel = it
+                            settingsManager.translateModel = it
+                        },
                     )
                 }
             }
@@ -408,13 +440,16 @@ fun SettingsScreen(
             SettingsField(
                 label = stringResource(R.string.thinking_strength),
                 value = thinkingLevels,
-                onValueChange = { thinkingLevels = it; settingsManager.thinkingLevels = it }
+                onValueChange = {
+                    thinkingLevels = it
+                    settingsManager.thinkingLevels = it
+                },
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = stringResource(R.string.thinking_strength_hint),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -423,12 +458,12 @@ fun SettingsScreen(
             SectionTitle(stringResource(R.string.debug_section))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
                     text = stringResource(R.string.forward_logs_to_logcat),
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
                 Switch(
                     checked = forwardLogsToLogcat,
@@ -436,7 +471,7 @@ fun SettingsScreen(
                         forwardLogsToLogcat = it
                         settingsManager.forwardLogsToLogcat = it
                         AppLog.forwardToLogcat = it
-                    }
+                    },
                 )
             }
 
@@ -451,7 +486,7 @@ fun SectionTitle(text: String) {
         text = text,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.primary
+        color = MaterialTheme.colorScheme.primary,
     )
 }
 
@@ -460,7 +495,7 @@ fun SettingsField(
     label: String,
     value: String,
     password: Boolean = false,
-    onValueChange: (String) -> Unit
+    onValueChange: (String) -> Unit,
 ) {
     var visible by remember { mutableStateOf(false) }
     OutlinedTextField(
@@ -469,16 +504,19 @@ fun SettingsField(
         label = if (label.isEmpty()) null else ({ Text(label) }),
         singleLine = true,
         visualTransformation = if (password && !visible) PasswordVisualTransformation() else VisualTransformation.None,
-        trailingIcon = if (password) {
-            {
-                IconButton(onClick = { visible = !visible }) {
-                    Icon(
-                        imageVector = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = null
-                    )
+        trailingIcon =
+            if (password) {
+                {
+                    IconButton(onClick = { visible = !visible }) {
+                        Icon(
+                            imageVector = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = null,
+                        )
+                    }
                 }
-            }
-        } else null,
-        modifier = Modifier.fillMaxWidth()
+            } else {
+                null
+            },
+        modifier = Modifier.fillMaxWidth(),
     )
 }

@@ -15,11 +15,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Error
@@ -37,15 +37,14 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
 class ResultActivity : ComponentActivity() {
-
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         window.addFlags(
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
         )
         window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
 
@@ -58,24 +57,27 @@ class ResultActivity : ComponentActivity() {
                 val errorText by TranslatorState.errorText.collectAsState()
                 val firstTokenReceived by TranslatorState.firstTokenReceived.collectAsState()
 
-                val ocrStatus = when (phase) {
-                    AppPhase.Recognizing -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
-                    AppPhase.OcrError -> StepUiStatus.Error
-                    AppPhase.Parsing, AppPhase.Done, AppPhase.TranslateError -> StepUiStatus.Done
-                    else -> StepUiStatus.Idle
-                }
-                val translateStatus = when (phase) {
-                    AppPhase.Parsing -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
-                    AppPhase.Done -> StepUiStatus.Done
-                    AppPhase.TranslateError -> StepUiStatus.Error
-                    else -> StepUiStatus.Idle
-                }
+                val ocrStatus =
+                    when (phase) {
+                        AppPhase.Recognizing -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
+                        AppPhase.OcrError -> StepUiStatus.Error
+                        AppPhase.Parsing, AppPhase.Done, AppPhase.TranslateError -> StepUiStatus.Done
+                        else -> StepUiStatus.Idle
+                    }
+                val translateStatus =
+                    when (phase) {
+                        AppPhase.Parsing -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
+                        AppPhase.Done -> StepUiStatus.Done
+                        AppPhase.TranslateError -> StepUiStatus.Error
+                        else -> StepUiStatus.Idle
+                    }
 
                 // The bottom vocabulary strip, and the indices its selection refers to. Every card
                 // remembers the block it came from, which is how saving recovers its sentence.
-                val cards = remember(translationResult) {
-                    translationResult?.let(::vocabularyCards).orEmpty()
-                }
+                val cards =
+                    remember(translationResult) {
+                        translationResult?.let(::vocabularyCards).orEmpty()
+                    }
                 val scope = rememberCoroutineScope()
                 val context = LocalContext.current
 
@@ -96,20 +98,22 @@ class ResultActivity : ComponentActivity() {
                         onDismissRequest = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
                         sheetState = sheetState,
                         scrimColor = Color.Transparent,
-                        dragHandle = { BottomSheetDefaults.DragHandle() }
+                        dragHandle = { BottomSheetDefaults.DragHandle() },
                     ) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 120.dp)
-                                .padding(start = 16.dp, end = 16.dp, bottom = 0.dp)
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 120.dp)
+                                    .padding(start = 16.dp, end = 16.dp, bottom = 0.dp),
                         ) {
                             // Scrollable content area
                             Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 60.dp, max = 400.dp)
-                                    .verticalScroll(rememberScrollState())
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 60.dp, max = 400.dp)
+                                        .verticalScroll(rememberScrollState()),
                             ) {
                                 // Show step rows while not yet Done
                                 if (phase != AppPhase.Done) {
@@ -127,7 +131,7 @@ class ResultActivity : ComponentActivity() {
                                         Text(
                                             text = errorText,
                                             color = MaterialTheme.colorScheme.error,
-                                            fontSize = 13.sp
+                                            fontSize = 13.sp,
                                         )
                                     }
                                 }
@@ -145,7 +149,7 @@ class ResultActivity : ComponentActivity() {
                                             } else {
                                                 selectedIndices.add(index)
                                             }
-                                        }
+                                        },
                                     )
                                 }
                             }
@@ -165,15 +169,16 @@ class ResultActivity : ComponentActivity() {
                                         val occurrences = occurrencesFor(cards, selectedIndices, ocrResult, translationResult)
                                         scope.launch {
                                             VocabularyDatabase.get(context).vocabularyDao().record(occurrences)
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(R.string.saved_words, occurrences.size),
-                                                Toast.LENGTH_SHORT
-                                            ).show()
+                                            Toast
+                                                .makeText(
+                                                    context,
+                                                    context.getString(R.string.saved_words, occurrences.size),
+                                                    Toast.LENGTH_SHORT,
+                                                ).show()
                                             TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss)
                                         }
                                     },
-                                    onConfirm = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) }
+                                    onConfirm = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
                                 )
                             }
                         }
@@ -192,10 +197,13 @@ class ResultActivity : ComponentActivity() {
 enum class StepUiStatus { Idle, Waiting, Streaming, Done, Error }
 
 @Composable
-fun StepRow(label: String, status: StepUiStatus) {
+fun StepRow(
+    label: String,
+    status: StepUiStatus,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         when (status) {
             StepUiStatus.Waiting -> {
@@ -203,44 +211,49 @@ fun StepRow(label: String, status: StepUiStatus) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+
             StepUiStatus.Streaming -> {
                 // First token has landed: the spinner gives way to a pulsing down arrow,
                 // which reads as "output is flowing" rather than "still waiting".
                 val blink by rememberInfiniteTransition(label = "streamingBlink").animateFloat(
                     initialValue = 0.25f,
                     targetValue = 1f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(durationMillis = 400, easing = LinearEasing),
-                        repeatMode = RepeatMode.Reverse
-                    ),
-                    label = "blinkAlpha"
+                    animationSpec =
+                        infiniteRepeatable(
+                            animation = tween(durationMillis = 400, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse,
+                        ),
+                    label = "blinkAlpha",
                 )
                 Icon(
                     imageVector = Icons.Outlined.ArrowDownward,
                     contentDescription = stringResource(R.string.cd_streaming),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = blink),
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
             }
+
             StepUiStatus.Done -> {
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = "Done",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
             }
+
             StepUiStatus.Error -> {
                 Icon(
                     imageVector = Icons.Default.Error,
                     contentDescription = "Error",
                     tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
             }
+
             StepUiStatus.Idle -> {
                 Spacer(modifier = Modifier.size(16.dp))
             }
@@ -251,31 +264,42 @@ fun StepRow(label: String, status: StepUiStatus) {
         Text(
             text = label,
             fontSize = 13.sp,
-            color = when (status) {
-                StepUiStatus.Waiting, StepUiStatus.Streaming -> MaterialTheme.colorScheme.onSurface
-                StepUiStatus.Done -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                StepUiStatus.Error -> MaterialTheme.colorScheme.error
-                StepUiStatus.Idle -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            },
-            fontWeight = when (status) {
-                StepUiStatus.Waiting, StepUiStatus.Streaming -> FontWeight.Medium
-                else -> FontWeight.Normal
-            }
+            color =
+                when (status) {
+                    StepUiStatus.Waiting, StepUiStatus.Streaming -> MaterialTheme.colorScheme.onSurface
+                    StepUiStatus.Done -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    StepUiStatus.Error -> MaterialTheme.colorScheme.error
+                    StepUiStatus.Idle -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                },
+            fontWeight =
+                when (status) {
+                    StepUiStatus.Waiting, StepUiStatus.Streaming -> FontWeight.Medium
+                    else -> FontWeight.Normal
+                },
         )
     }
 }
 
 /** A piece of a source segment: either verbatim text or a vocabulary word to gloss. */
 private sealed interface SourceToken {
-    data class Plain(val text: String) : SourceToken
-    data class Annotated(val word: TranslationWord, val surface: String) : SourceToken
+    data class Plain(
+        val text: String,
+    ) : SourceToken
+
+    data class Annotated(
+        val word: TranslationWord,
+        val surface: String,
+    ) : SourceToken
 }
 
 /**
  * Splits [segment] around [words]: each word is located at its first occurrence after the
  * previous match, so the annotated pieces keep the original reading order.
  */
-private fun tokenizeSegment(segment: String, words: List<TranslationWord>): List<SourceToken> {
+private fun tokenizeSegment(
+    segment: String,
+    words: List<TranslationWord>,
+): List<SourceToken> {
     val tokens = mutableListOf<SourceToken>()
     var cursor = 0
     for (word in words) {
@@ -295,19 +319,20 @@ private fun tokenizeSegment(segment: String, words: List<TranslationWord>): List
  * letters/digits stay glued together, everything else goes character by character (which is how
  * Japanese breaks anyway). Trailing whitespace sticks to the piece before it.
  */
-private fun chunkPlainText(text: String): List<String> = buildList {
-    var i = 0
-    while (i < text.length) {
-        val start = i
-        if (text[i].isAsciiWordChar()) {
-            while (i < text.length && text[i].isAsciiWordChar()) i++
-        } else {
-            i++
+private fun chunkPlainText(text: String): List<String> =
+    buildList {
+        var i = 0
+        while (i < text.length) {
+            val start = i
+            if (text[i].isAsciiWordChar()) {
+                while (i < text.length && text[i].isAsciiWordChar()) i++
+            } else {
+                i++
+            }
+            while (i < text.length && text[i].isWhitespace()) i++
+            add(text.substring(start, i))
         }
-        while (i < text.length && text[i].isWhitespace()) i++
-        add(text.substring(start, i))
     }
-}
 
 private fun Char.isAsciiWordChar(): Boolean = isLetterOrDigit() && code < 0x80
 
@@ -322,27 +347,29 @@ private fun AnnotatedWord(token: SourceToken.Annotated) {
 
     val word: @Composable () -> Unit = {
         Column(
-            modifier = Modifier
-                .width(IntrinsicSize.Max)
-                .padding(horizontal = 2.dp),
+            modifier =
+                Modifier
+                    .width(IntrinsicSize.Max)
+                    .padding(horizontal = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Text(
                 text = token.surface,
                 fontSize = 15.sp,
                 lineHeight = 20.sp,
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1
+                maxLines = 1,
             )
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.5.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        shape = RoundedCornerShape(1.dp)
-                    )
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.5.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = RoundedCornerShape(1.dp),
+                        ),
             )
             Row(verticalAlignment = Alignment.Top) {
                 Text(
@@ -350,7 +377,7 @@ private fun AnnotatedWord(token: SourceToken.Annotated) {
                     fontSize = 12.sp,
                     lineHeight = 15.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
+                    maxLines = 1,
                 )
                 if (origin != null) {
                     Text(
@@ -358,7 +385,7 @@ private fun AnnotatedWord(token: SourceToken.Annotated) {
                         fontSize = 12.sp,
                         lineHeight = 15.sp,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.offset(y = (-3).dp)
+                        modifier = Modifier.offset(y = (-3).dp),
                     )
                 }
             }
@@ -371,12 +398,13 @@ private fun AnnotatedWord(token: SourceToken.Annotated) {
         val tooltipState = rememberTooltipState()
         val scope = rememberCoroutineScope()
         TooltipBox(
-            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
-                TooltipAnchorPosition.Below
-            ),
+            positionProvider =
+                TooltipDefaults.rememberTooltipPositionProvider(
+                    TooltipAnchorPosition.Below,
+                ),
             state = tooltipState,
             enableUserInput = false,
-            tooltip = { PlainTooltip { Text(origin) } }
+            tooltip = { PlainTooltip { Text(origin) } },
         ) {
             Box(modifier = Modifier.clickable { scope.launch { tooltipState.show() } }) {
                 word()
@@ -389,13 +417,17 @@ private fun AnnotatedWord(token: SourceToken.Annotated) {
  * One card in the bottom vocabulary strip. The block index is what makes a card more than a label:
  * it points back at the sentence the word was found in.
  */
-data class VocabularyCard(val blockIndex: Int, val word: TranslationWord)
+data class VocabularyCard(
+    val blockIndex: Int,
+    val word: TranslationWord,
+)
 
 /** The cards of a result, ranked by difficulty — the strip's order, and the indices selection uses. */
 private fun vocabularyCards(result: TranslationResult): List<VocabularyCard> =
-    result.results.flatMapIndexed { blockIndex, block ->
-        block.columns.flatten().map { VocabularyCard(blockIndex, it) }
-    }.filter { it.word.difficulty != null }
+    result.results
+        .flatMapIndexed { blockIndex, block ->
+            block.columns.flatten().map { VocabularyCard(blockIndex, it) }
+        }.filter { it.word.difficulty != null }
         .sortedByDescending { it.word.difficulty }
 
 @Composable
@@ -404,43 +436,53 @@ fun ResultBlocks(
     translationResult: TranslationResult,
     cards: List<VocabularyCard>,
     selectedIndices: Set<Int>,
-    onToggleSelect: (Int) -> Unit
+    onToggleSelect: (Int) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 60.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 60.dp),
     ) {
         ocrResult.blocks.forEachIndexed { index, block ->
             // Japanese original text, with each vocabulary word glossed underneath.
-            val columns = translationResult.results.getOrNull(index)?.columns.orEmpty()
+            val columns =
+                translationResult.results
+                    .getOrNull(index)
+                    ?.columns
+                    .orEmpty()
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 // Breathing room between wrapped source lines (the gloss row sits inside them).
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 block.forEachIndexed { segIndex, segment ->
                     if (segIndex > 0) {
                         VerticalDivider(
-                            modifier = Modifier
-                                .height(16.dp)
-                                .padding(horizontal = 8.dp),
+                            modifier =
+                                Modifier
+                                    .height(16.dp)
+                                    .padding(horizontal = 8.dp),
                             color = MaterialTheme.colorScheme.outlineVariant,
-                            thickness = 1.dp
+                            thickness = 1.dp,
                         )
                     }
                     tokenizeSegment(segment, columns.getOrNull(segIndex).orEmpty()).forEach { token ->
                         when (token) {
-                            is SourceToken.Plain -> chunkPlainText(token.text).forEach { chunk ->
-                                Text(
-                                    text = chunk,
-                                    fontSize = 15.sp,
-                                    lineHeight = 20.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                            is SourceToken.Plain -> {
+                                chunkPlainText(token.text).forEach { chunk ->
+                                    Text(
+                                        text = chunk,
+                                        fontSize = 15.sp,
+                                        lineHeight = 20.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
 
-                            is SourceToken.Annotated -> AnnotatedWord(token)
+                            is SourceToken.Annotated -> {
+                                AnnotatedWord(token)
+                            }
                         }
                     }
                 }
@@ -452,13 +494,13 @@ fun ResultBlocks(
                 text = translation,
                 fontSize = 14.sp,
                 lineHeight = 19.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             // Divider between blocks (not after the last one)
             if (index < ocrResult.blocks.lastIndex) {
                 Spacer(modifier = Modifier.height(8.dp))
                 HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -471,27 +513,39 @@ fun ResultBlocks(
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 cards.forEachIndexed { index, card ->
                     val isSelected = selectedIndices.contains(index)
                     Surface(
                         shape = MaterialTheme.shapes.small,
-                        border = BorderStroke(
-                            1.dp,
-                            if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant
-                        ),
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surface,
-                        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.clickable { onToggleSelect(index) }
+                        border =
+                            BorderStroke(
+                                1.dp,
+                                if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant
+                                },
+                            ),
+                        color =
+                            if (isSelected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            },
+                        contentColor =
+                            if (isSelected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        modifier = Modifier.clickable { onToggleSelect(index) },
                     ) {
                         Text(
                             text = card.word.lemma,
                             fontSize = 13.sp,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }
                 }
@@ -508,14 +562,15 @@ fun BottomActionBar(
     onRetry: () -> Unit,
     onThinkHarder: () -> Unit,
     onSave: () -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
 ) {
     val context = LocalContext.current
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp, bottom = 24.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp, bottom = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         TextButton(onClick = {
             context.startActivity(Intent(context, LogsActivity::class.java))
@@ -539,11 +594,13 @@ fun BottomActionBar(
                     }
                 }
             }
+
             AppPhase.OcrError, AppPhase.TranslateError -> {
                 Button(onClick = onRetry) {
                     Text(stringResource(R.string.action_retry))
                 }
             }
+
             else -> {}
         }
     }
@@ -557,7 +614,7 @@ private fun occurrencesFor(
     cards: List<VocabularyCard>,
     selectedIndices: Set<Int>,
     ocrResult: OcrResult?,
-    translationResult: TranslationResult?
+    translationResult: TranslationResult?,
 ): List<VocabularyOccurrence> {
     val blocks = ocrResult?.blocks ?: return emptyList()
     val results = translationResult?.results ?: return emptyList()
@@ -570,7 +627,7 @@ private fun occurrencesFor(
             surface = card.word.word,
             definition = card.word.definition,
             sentence = sentence,
-            translation = results.getOrNull(card.blockIndex)?.translation.orEmpty()
+            translation = results.getOrNull(card.blockIndex)?.translation.orEmpty(),
         )
     }
 }
