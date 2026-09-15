@@ -1,7 +1,9 @@
 package me.sgly.translator
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.LinearEasing
@@ -27,6 +29,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -67,6 +70,14 @@ class ResultActivity : ComponentActivity() {
                     AppPhase.TranslateError -> StepUiStatus.Error
                     else -> StepUiStatus.Idle
                 }
+
+                // The bottom vocabulary strip, and the indices its selection refers to. Every card
+                // remembers the block it came from, which is how saving recovers its sentence.
+                val cards = remember(translationResult) {
+                    translationResult?.let(::vocabularyCards).orEmpty()
+                }
+                val scope = rememberCoroutineScope()
+                val context = LocalContext.current
 
                 // Word card selection state
                 val selectedIndices = remember { mutableStateSetOf<Int>() }
@@ -126,6 +137,7 @@ class ResultActivity : ComponentActivity() {
                                     ResultBlocks(
                                         ocrResult = ocrResult!!,
                                         translationResult = translationResult!!,
+                                        cards = cards,
                                         selectedIndices = selectedIndices,
                                         onToggleSelect = { index ->
                                             if (selectedIndices.contains(index)) {
@@ -149,6 +161,18 @@ class ResultActivity : ComponentActivity() {
                                         TranslatorState.transition(nextPhase, TransitionReason.Retry)
                                     },
                                     onThinkHarder = { TranslatorState.transition(AppPhase.Recognizing, TransitionReason.ThinkHarder) },
+                                    onSave = {
+                                        val occurrences = occurrencesFor(cards, selectedIndices, ocrResult, translationResult)
+                                        scope.launch {
+                                            VocabularyDatabase.get(context).vocabularyDao().record(occurrences)
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.saved_words, occurrences.size),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss)
+                                        }
+                                    },
                                     onConfirm = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) }
                                 )
                             }
@@ -361,10 +385,24 @@ private fun AnnotatedWord(token: SourceToken.Annotated) {
     }
 }
 
+/**
+ * One card in the bottom vocabulary strip. The block index is what makes a card more than a label:
+ * it points back at the sentence the word was found in.
+ */
+data class VocabularyCard(val blockIndex: Int, val word: TranslationWord)
+
+/** The cards of a result, ranked by difficulty — the strip's order, and the indices selection uses. */
+private fun vocabularyCards(result: TranslationResult): List<VocabularyCard> =
+    result.results.flatMapIndexed { blockIndex, block ->
+        block.columns.flatten().map { VocabularyCard(blockIndex, it) }
+    }.filter { it.word.difficulty != null }
+        .sortedByDescending { it.word.difficulty }
+
 @Composable
 fun ResultBlocks(
     ocrResult: OcrResult,
     translationResult: TranslationResult,
+    cards: List<VocabularyCard>,
     selectedIndices: Set<Int>,
     onToggleSelect: (Int) -> Unit
 ) {
@@ -426,13 +464,7 @@ fun ResultBlocks(
             }
         }
 
-        // Vocabulary cards: collect all words, filter null difficulty, sort by difficulty descending
-        val allWords = translationResult.results
-            .flatMap { it.columns.flatten() }
-            .filter { it.difficulty != null }
-            .sortedByDescending { it.difficulty }
-
-        if (allWords.isNotEmpty()) {
+        if (cards.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(12.dp))
@@ -441,7 +473,7 @@ fun ResultBlocks(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                allWords.forEachIndexed { index, word ->
+                cards.forEachIndexed { index, card ->
                     val isSelected = selectedIndices.contains(index)
                     Surface(
                         shape = MaterialTheme.shapes.small,
@@ -457,7 +489,7 @@ fun ResultBlocks(
                         modifier = Modifier.clickable { onToggleSelect(index) }
                     ) {
                         Text(
-                            text = word.lemma,
+                            text = card.word.lemma,
                             fontSize = 13.sp,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
@@ -475,9 +507,10 @@ fun BottomActionBar(
     onDismiss: () -> Unit,
     onRetry: () -> Unit,
     onThinkHarder: () -> Unit,
+    onSave: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -485,7 +518,7 @@ fun BottomActionBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         TextButton(onClick = {
-            context.startActivity(android.content.Intent(context, LogsActivity::class.java))
+            context.startActivity(Intent(context, LogsActivity::class.java))
         }) {
             Text(stringResource(R.string.action_logs))
         }
@@ -497,9 +530,7 @@ fun BottomActionBar(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 if (hasSelection) {
-                    Button(onClick = {
-                        android.widget.Toast.makeText(context, context.getString(R.string.not_implemented), android.widget.Toast.LENGTH_SHORT).show()
-                    }) {
+                    Button(onClick = onSave) {
                         Text(stringResource(R.string.action_save))
                     }
                 } else {
@@ -515,5 +546,31 @@ fun BottomActionBar(
             }
             else -> {}
         }
+    }
+}
+
+/**
+ * The database rows behind one 「记一下」. A card's sentence is its whole block: that is the unit the
+ * model translated, so it is also the unit the reader heard as "this sentence".
+ */
+private fun occurrencesFor(
+    cards: List<VocabularyCard>,
+    selectedIndices: Set<Int>,
+    ocrResult: OcrResult?,
+    translationResult: TranslationResult?
+): List<VocabularyOccurrence> {
+    val blocks = ocrResult?.blocks ?: return emptyList()
+    val results = translationResult?.results ?: return emptyList()
+    return selectedIndices.mapNotNull { index ->
+        val card = cards.getOrNull(index) ?: return@mapNotNull null
+        val sentence = blocks.getOrNull(card.blockIndex)?.joinToString("") ?: return@mapNotNull null
+        VocabularyOccurrence(
+            lemma = card.word.lemma,
+            origin = card.word.origin.orEmpty(),
+            surface = card.word.word,
+            definition = card.word.definition,
+            sentence = sentence,
+            translation = results.getOrNull(card.blockIndex)?.translation.orEmpty()
+        )
     }
 }

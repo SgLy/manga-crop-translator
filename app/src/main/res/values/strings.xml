@@ -29,5 +29,5 @@
     <string name="action_save">Take a note</string>
     <string name="action_got_it">Got it</string>
     <string name="action_retry">Try again</string>
-    <string name="not_implemented">Not ready yet</string>
+    <string name="saved_words">Saved %1$d words</string>
 </resources>
