@@ -1,5 +1,6 @@
 *.iml
 .gradle
+.kotlin
 /local.properties
 /.idea/caches
 /.idea/libraries
@@ -15,12 +16,22 @@
 /captures
 .externalNativeBuild
 .cxx
-local.properties
 plan.md
 DESIGN.md
-quick-test/node_modules
-quick-test/.env
+node_modules
 quick-test/crop.png
 quick-test/ocr-result.json
 quick-test/translate-result.json
 quick-test/demo.html
+
+# Release signing material — never commit these
+*.jks
+*.keystore
+*.pem
+keystore.properties
+
+# Local secrets
+.env
+.env.*
+secrets.*
+credentials*
