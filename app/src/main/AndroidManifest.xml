@@ -48,6 +48,11 @@
             android:theme="@style/Theme.CropTranslator"
             android:excludeFromRecents="true"
             android:exported="false" />
+
+        <activity
+            android:name=".VocabularyDetailActivity"
+            android:theme="@style/Theme.CropTranslator"
+            android:exported="false" />
     </application>
 
 </manifest>

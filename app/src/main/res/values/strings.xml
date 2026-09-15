@@ -6,6 +6,7 @@
     <string name="cd_settings">Settings</string>
     <string name="cd_streaming">Receiving response</string>
     <string name="start">Start</string>
+    <string name="vocabulary_empty">Nothing at all, a boundless expanse of white</string>
 
     <string name="image_recognition_model">Image Recognition Model</string>
     <string name="visual_model_hint">*Configure an LLM that supports image input</string>

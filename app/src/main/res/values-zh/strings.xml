@@ -6,6 +6,7 @@
     <string name="cd_settings">设置</string>
     <string name="cd_streaming">正在接收响应</string>
     <string name="start">开始</string>
+    <string name="vocabulary_empty">什么都没有，白茫茫一片</string>
 
     <string name="image_recognition_model">图片识别模型</string>
     <string name="visual_model_hint">*配置支持图片输入的 LLM</string>

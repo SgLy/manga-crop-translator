@@ -12,8 +12,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -24,12 +27,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
@@ -150,6 +157,11 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onStartClicked: () -> Unit
 ) {
+    val context = LocalContext.current
+    val summaries by remember {
+        VocabularyDatabase.get(context).vocabularyDao().summaries()
+    }.collectAsState(initial = emptyList())
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -169,9 +181,43 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 16.dp)
         ) {
-            Spacer(modifier = Modifier.weight(1f))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                if (summaries.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.vocabulary_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else {
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        summaries.forEach { summary ->
+                            VocabularyCard(
+                                summary = summary,
+                                onClick = {
+                                    context.startActivity(
+                                        Intent(context, VocabularyDetailActivity::class.java)
+                                            .putExtra(VocabularyDetailActivity.EXTRA_WORD_ID, summary.id)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = onStartClicked,
                 modifier = Modifier
@@ -183,7 +229,58 @@ fun HomeScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
             }
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+/** One tile of the vocabulary list: the headword, its meanings, and how often it was recorded. */
+@Composable
+private fun VocabularyCard(summary: VocabularySummary, onClick: () -> Unit) {
+    Box(modifier = Modifier.widthIn(max = 220.dp)) {
+        Surface(
+            onClick = onClick,
+            shape = MaterialTheme.shapes.medium,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 12.dp)
+            ) {
+                Text(
+                    text = summary.lemma,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    // Leaves room for the count badge sitting in the card's top-right corner.
+                    modifier = Modifier.padding(end = 26.dp)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = summary.definitions,
+                    fontSize = 13.sp,
+                    lineHeight = 17.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(7.dp)
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = summary.entryCount.toString(),
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
     }
 }
