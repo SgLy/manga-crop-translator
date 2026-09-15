@@ -31,6 +31,11 @@
     <plurals name="saved_words">
         <item quantity="other">记下了 %1$d 个词</item>
     </plurals>
+    <string name="entry_deleted">已删除</string>
+    <string name="delete_word_title">删除「%1$s」？</string>
     <string name="action_got_it">知道了</string>
     <string name="action_retry">重试</string>
+    <string name="action_undo">撤销</string>
+    <string name="action_delete">删除</string>
+    <string name="action_keep">留下</string>
 </resources>

@@ -3,6 +3,7 @@ package me.sgly.translator
 import android.content.Context
 import androidx.room.Dao
 import androidx.room.Database
+import androidx.room.Delete
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -26,7 +27,7 @@ data class VocabularyWord(
     val origin: String,
 )
 
-/** One sighting of a [VocabularyWord], in the sentence that produced it. */
+/** One entry of a [VocabularyWord], in the sentence that produced it. */
 @Entity(
     tableName = "vocabulary_entry",
     foreignKeys = [
@@ -42,7 +43,7 @@ data class VocabularyWord(
 data class VocabularyEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val wordId: Long,
-    /** The surface form this sighting actually used, which may differ from the lemma. */
+    /** The surface form this entry actually used, which may differ from the lemma. */
     val surface: String,
     val definition: String,
     val sentence: String,
@@ -75,7 +76,7 @@ data class VocabularySummary(
     val entryCount: Int,
 )
 
-/** A headword together with every sighting of it. [entries] comes back unordered; callers sort it. */
+/** A headword together with every entry of it. [entries] comes back unordered; callers sort it. */
 data class VocabularyWordWithEntries(
     @Embedded val word: VocabularyWord,
     @Relation(parentColumn = "id", entityColumn = "wordId")
@@ -95,7 +96,7 @@ abstract class VocabularyDao {
 
     /**
      * Records every occurrence in one transaction. A lemma met for the first time gets a headword
-     * row carved out of the first occurrence; later sightings reuse that row and keep the origin
+     * row carved out of the first occurrence; later entries reuse that row and keep the origin
      * recorded back then.
      */
     @Transaction
@@ -125,6 +126,18 @@ abstract class VocabularyDao {
             )
         }
     }
+
+    /** Deletes one entry. The headword survives even when this was its last one. */
+    @Delete
+    abstract suspend fun deleteEntry(entry: VocabularyEntry)
+
+    /** Puts a deleted entry back with its original id and timestamp, so undo restores it as it was. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun restoreEntry(entry: VocabularyEntry)
+
+    /** Deletes the headword and, by cascade, every entry of it. */
+    @Query("DELETE FROM vocabulary_word WHERE id = :wordId")
+    abstract suspend fun deleteWord(wordId: Long)
 
     /**
      * Every headword once, most recently recorded first, so a word jumps back to the front each time
