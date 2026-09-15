@@ -94,12 +94,12 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
 
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                val errorBody = response.body?.string() ?: ""
+                val errorBody = response.body.string()
                 AppLog.e("MangaVisualModel", "API Error Response: ${response.code} - $errorBody")
                 throw Exception("VisualModel Request Failed: ${response.code}\n$errorBody")
             }
 
-            val source = response.body?.source() ?: throw Exception("Empty response body")
+            val source = response.body.source()
             val contentBuilder = java.lang.StringBuilder()
             val functionArguments = java.lang.StringBuilder()
 
@@ -227,12 +227,12 @@ class OpenAIApiClient(private val settingsManager: SettingsManager) {
 
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                val errorBody = response.body?.string() ?: ""
+                val errorBody = response.body.string()
                 AppLog.e("MangaTranslateModel", "API Error Response: ${response.code} - $errorBody")
                 throw Exception("TranslateModel Translation Failed: ${response.code}\n$errorBody")
             }
 
-            val source = response.body?.source() ?: throw Exception("Empty response body")
+            val source = response.body.source()
             val contentBuilder = java.lang.StringBuilder()
             val functionArguments = java.lang.StringBuilder()
 
