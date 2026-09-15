@@ -142,6 +142,9 @@ class VocabularyDetailActivity : ComponentActivity() {
                                                 finish()
                                             }
                                         },
+                                        onExpanded = {
+                                            if (restoredEntryId == entry.id) restoredEntryId = null
+                                        },
                                     )
                                 }
                             }
@@ -182,6 +185,9 @@ private fun HeadwordRow(
     }
 }
 
+/** What a collapsing row should remove once it has finished collapsing. */
+private enum class Deletion { Entry, Word }
+
 /**
  * One entry, swipe-able leftwards to delete it. The last one cannot go on its own — that would
  * leave a headword with nothing behind it — so it stays swiped open while the dialog asks, and only
@@ -195,6 +201,7 @@ private fun SwipeableEntryRow(
     isRestored: Boolean,
     onDelete: () -> Unit,
     onDeleteWord: () -> Unit,
+    onExpanded: () -> Unit,
 ) {
     val positionalThreshold = SwipeToDismissBoxDefaults.positionalThreshold
     val dismissState =
@@ -206,7 +213,7 @@ private fun SwipeableEntryRow(
         }
     val scope = rememberCoroutineScope()
     var askingToDeleteWord by remember { mutableStateOf(false) }
-    var deletesWord by remember { mutableStateOf(false) }
+    var pendingDeletion by remember { mutableStateOf<Deletion?>(null) }
     val visibleState = remember { MutableTransitionState(!isRestored) }
     LaunchedEffect(Unit) { if (isRestored) visibleState.targetState = true }
 
@@ -215,17 +222,29 @@ private fun SwipeableEntryRow(
         scope.launch { dismissState.reset() }
     }
 
-    // Collapsing to zero height is what lets the row leave naturally: the database delete only runs
-    // once the exit animation is idle, so the flow never yanks away a row that is still on screen.
+    val collapse: (Deletion) -> Unit = { deletion ->
+        pendingDeletion = deletion
+        visibleState.targetState = false
+    }
+
+    // The row leaves by collapsing to zero height, and only then is the database told: deleting first
+    // would have the flow yank the row away mid-air. A collapse we asked for is the only one that
+    // counts — a row that merely *starts* collapsed is a restored one, not a departing one.
     LaunchedEffect(visibleState.currentState, visibleState.isIdle) {
-        if (!visibleState.isIdle || visibleState.currentState) return@LaunchedEffect
-        if (deletesWord) onDeleteWord() else onDelete()
+        if (!visibleState.isIdle) return@LaunchedEffect
+        if (visibleState.currentState) {
+            if (isRestored) onExpanded()
+            return@LaunchedEffect
+        }
+        val deletion = pendingDeletion ?: return@LaunchedEffect
+        pendingDeletion = null
+        if (deletion == Deletion.Word) onDeleteWord() else onDelete()
     }
 
     // The last entry cannot go away on its own, so it stays open and lets the dialog decide.
     LaunchedEffect(dismissState.settledValue) {
         if (dismissState.settledValue != SwipeToDismissBoxValue.EndToStart) return@LaunchedEffect
-        if (isOnlyEntry) askingToDeleteWord = true else visibleState.targetState = false
+        if (isOnlyEntry) askingToDeleteWord = true else collapse(Deletion.Entry)
     }
 
     AnimatedVisibility(
@@ -275,8 +294,7 @@ private fun SwipeableEntryRow(
                 TextButton(
                     onClick = {
                         askingToDeleteWord = false
-                        deletesWord = true
-                        visibleState.targetState = false
+                        collapse(Deletion.Word)
                     },
                 ) {
                     Text(stringResource(R.string.action_delete))
