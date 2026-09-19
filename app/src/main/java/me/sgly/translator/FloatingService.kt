@@ -17,18 +17,18 @@ import android.view.View
 import android.view.WindowManager
 import android.view.WindowManager.LayoutParams
 import android.widget.FrameLayout
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -403,17 +403,24 @@ private fun FabButton() {
             shape = CircleShape,
             shadowElevation = 6.dp,
             color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(56.dp),
         ) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
                 contentAlignment = androidx.compose.ui.Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Default.Translate,
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher_background),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = "Translate",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
