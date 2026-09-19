@@ -18,6 +18,7 @@ enum class AppPhase {
     OcrError, // Result sheet open, OCR failed
     TranslateError, // Result sheet open, TranslateModel failed (OCR result preserved)
     ViewingLast, // Result sheet open, showing the previous result
+    ShowingLogs, // Logs screen open, the result sheet is hidden
 }
 
 enum class TransitionReason {
@@ -35,6 +36,8 @@ enum class TransitionReason {
     Retry, // OcrError → Recognizing; TranslateError → Parsing
     Dismiss, // Done/OcrError/TranslateError → Idle
     Reset, // any → Idle (triggered from MainActivity on fresh start)
+    ShowLogs, // Done/OcrError/TranslateError/ViewingLast → ShowingLogs
+    CloseLogs, // ShowingLogs → the phase it was opened from
 }
 
 data class Transition(
@@ -95,6 +98,10 @@ object TranslatorState {
 
     /** The last completed translation. Survives a dismiss, so the FAB can hand it back. */
     var lastTranslation: LastTranslation? = null
+        private set
+
+    /** The result phase a logs screen was opened from, so closing it returns there. */
+    var phaseBeforeLogs: AppPhase? = null
         private set
 
     // Result data: observed reactively by UI components
@@ -169,6 +176,14 @@ object TranslatorState {
                 _errorText.value = ""
             }
 
+            TransitionReason.ShowLogs -> {
+                phaseBeforeLogs = from
+            }
+
+            TransitionReason.CloseLogs -> {
+                phaseBeforeLogs = null
+            }
+
             TransitionReason.TranslateSuccess -> {
                 // Keep the finished pair so a later long press can show it again.
                 val ocr = _ocrResult.value
@@ -224,6 +239,14 @@ object TranslatorState {
         }
         _phase.value = to
         _lastTransition.tryEmit(Transition(from, to, reason))
+    }
+
+    /**
+     * Leaves the logs screen if it is open, returning to the result phase it was opened from.
+     */
+    fun closeLogsIfOpen() {
+        if (_phase.value != AppPhase.ShowingLogs) return
+        transition(phaseBeforeLogs ?: AppPhase.Done, TransitionReason.CloseLogs)
     }
 
     /** Resets all state to Idle. Called from MainActivity on fresh start. */

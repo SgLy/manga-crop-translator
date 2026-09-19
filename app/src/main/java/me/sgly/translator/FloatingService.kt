@@ -90,6 +90,8 @@ class FloatingService :
         screenCaptureManager.onCapturedContentVisibilityChanged = { visible ->
             val wasVisible = TranslatorState.capturedContentVisible.value
             TranslatorState.setCapturedContentVisible(visible)
+            // The captured content is back on screen, so any logs screen covering it is gone.
+            if (visible && !wasVisible) TranslatorState.closeLogsIfOpen()
             // Coming back to the shared app: restore the UI the current phase implies.
             if (visible && !wasVisible && TranslatorState.phase.value in resultPhases) {
                 serviceScope.launch {

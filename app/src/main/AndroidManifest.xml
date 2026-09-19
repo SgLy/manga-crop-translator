@@ -38,7 +38,7 @@
             android:name=".SheetActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
-            android:launchMode="singleInstance"
+            android:launchMode="singleTask"
             android:taskAffinity=""
             android:exported="false" />
 

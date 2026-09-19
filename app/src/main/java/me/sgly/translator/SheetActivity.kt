@@ -16,10 +16,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
 /** Hosts the bottom sheet: [ProgressSheet] while a request runs or has failed, [ResultSheet] after. */
 class SheetActivity : ComponentActivity() {
+    private var resumeCount by mutableIntStateOf(0)
+
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,11 +46,23 @@ class SheetActivity : ComponentActivity() {
                     }
                 }
 
-                val isSheetVisible = phase != AppPhase.Idle && phase != AppPhase.Capturing && phase != AppPhase.Cropping
+                LaunchedEffect(resumeCount) {
+                    TranslatorState.closeLogsIfOpen()
+                }
+
+                val isSheetVisible =
+                    phase != AppPhase.Idle &&
+                        phase != AppPhase.Capturing &&
+                        phase != AppPhase.Cropping &&
+                        phase != AppPhase.ShowingLogs
                 if (isSheetVisible) {
                     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                     ModalBottomSheet(
-                        onDismissRequest = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
+                        onDismissRequest = {
+                            if (phase != AppPhase.ShowingLogs) {
+                                TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss)
+                            }
+                        },
                         sheetState = sheetState,
                         scrimColor = Color.Transparent,
                         dragHandle = { BottomSheetDefaults.DragHandle() },
@@ -65,6 +81,11 @@ class SheetActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumeCount++
     }
 
     override fun finish() {

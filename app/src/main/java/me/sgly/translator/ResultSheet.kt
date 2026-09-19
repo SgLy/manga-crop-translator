@@ -117,6 +117,10 @@ fun ResultSheet(phase: AppPhase) {
                 }
             },
             onConfirm = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
+            onShowLogs = {
+                TranslatorState.transition(AppPhase.ShowingLogs, TransitionReason.ShowLogs)
+                context.startActivity(Intent(context, LogsActivity::class.java))
+            },
         )
     }
 }
@@ -128,8 +132,8 @@ private fun ResultActions(
     onThinkHarder: () -> Unit,
     onSave: () -> Unit,
     onConfirm: () -> Unit,
+    onShowLogs: () -> Unit,
 ) {
-    val context = LocalContext.current
     Row(
         modifier =
             Modifier
@@ -137,9 +141,7 @@ private fun ResultActions(
                 .padding(top = 12.dp, bottom = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TextButton(onClick = {
-            context.startActivity(Intent(context, LogsActivity::class.java))
-        }) {
+        TextButton(onClick = onShowLogs) {
             Text(stringResource(R.string.action_logs))
         }
         Spacer(modifier = Modifier.weight(1f))
