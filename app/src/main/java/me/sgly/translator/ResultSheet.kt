@@ -22,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -85,17 +86,22 @@ fun ResultSheet(phase: AppPhase) {
                 ResultBlocks(
                     ocrResult = ocrResult!!,
                     translationResult = translationResult!!,
-                    cards = cards,
-                    selectedIndices = selectedIndices,
-                    onToggleSelect = { index ->
-                        if (selectedIndices.contains(index)) {
-                            selectedIndices.remove(index)
-                        } else {
-                            selectedIndices.add(index)
-                        }
-                    },
                 )
             }
+        }
+
+        if (cards.isNotEmpty()) {
+            CardStrip(
+                cards = cards,
+                selectedIndices = selectedIndices,
+                onToggleSelect = { index ->
+                    if (selectedIndices.contains(index)) {
+                        selectedIndices.remove(index)
+                    } else {
+                        selectedIndices.add(index)
+                    }
+                },
+            )
         }
 
         ResultActions(
@@ -141,7 +147,13 @@ private fun ResultActions(
                 .padding(top = 12.dp, bottom = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TextButton(onClick = onShowLogs) {
+        TextButton(
+            onClick = onShowLogs,
+            colors =
+                ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                ),
+        ) {
             Text(stringResource(R.string.action_logs))
         }
         Spacer(modifier = Modifier.weight(1f))
@@ -330,9 +342,6 @@ private fun vocabularyCards(result: TranslationResult): List<VocabularyCard> =
 fun ResultBlocks(
     ocrResult: OcrResult,
     translationResult: TranslationResult,
-    cards: List<VocabularyCard>,
-    selectedIndices: Set<Int>,
-    onToggleSelect: (Int) -> Unit,
 ) {
     Column(
         modifier =
@@ -394,57 +403,63 @@ fun ResultBlocks(
             )
             // Divider between blocks (not after the last one)
             if (index < ocrResult.blocks.lastIndex) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
+    }
+}
 
-        if (cards.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(modifier = Modifier.height(12.dp))
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+/** The vocabulary strip: fixed below the scrolling blocks, above the actions. */
+@Composable
+private fun CardStrip(
+    cards: List<VocabularyCard>,
+    selectedIndices: Set<Int>,
+    onToggleSelect: (Int) -> Unit,
+) {
+    FlowRow(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 48.dp, bottom = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        cards.forEachIndexed { index, card ->
+            val isSelected = selectedIndices.contains(index)
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                border =
+                    BorderStroke(
+                        1.dp,
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.outlineVariant
+                        },
+                    ),
+                color =
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
+                contentColor =
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                modifier = Modifier.clickable { onToggleSelect(index) },
             ) {
-                cards.forEachIndexed { index, card ->
-                    val isSelected = selectedIndices.contains(index)
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        border =
-                            BorderStroke(
-                                1.dp,
-                                if (isSelected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.outlineVariant
-                                },
-                            ),
-                        color =
-                            if (isSelected) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surface
-                            },
-                        contentColor =
-                            if (isSelected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
-                        modifier = Modifier.clickable { onToggleSelect(index) },
-                    ) {
-                        Text(
-                            text = card.word.lemma,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        )
-                    }
-                }
+                Text(
+                    text = card.word.lemma,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                )
             }
         }
     }
