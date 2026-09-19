@@ -105,7 +105,7 @@ class FloatingService :
                         // result sheet actually reaches the foreground (and hide it right after).
                         floatingView.visibility = View.VISIBLE
                         delay(120)
-                        showResultSheet(clearTask = true)
+                        showSheet(clearTask = true)
                         delay(400)
                         updateFabVisibility()
                     }
@@ -143,7 +143,7 @@ class FloatingService :
                         if (cropped != null) {
                             TranslatorState.croppedBitmap = cropped
                             AppLog.i("TranslatorState", "croppedBitmap: ${cropped.width}×${cropped.height}")
-                            showResultSheet()
+                            showSheet()
                             overlayScreenManager.hideOverlay()
                             TranslatorState.transition(AppPhase.Recognizing, TransitionReason.CropSelected)
                         } else {
@@ -368,7 +368,7 @@ class FloatingService :
             return
         }
         TranslatorState.transition(AppPhase.ViewingLast, TransitionReason.FabLongPressed)
-        showResultSheet(clearTask = true)
+        showSheet(clearTask = true)
     }
 
     /**
@@ -381,9 +381,9 @@ class FloatingService :
         floatingView.visibility = if (show) View.VISIBLE else View.INVISIBLE
     }
 
-    private fun showResultSheet(clearTask: Boolean = false) {
+    private fun showSheet(clearTask: Boolean = false) {
         val intent =
-            Intent(this, ResultActivity::class.java).apply {
+            Intent(this, SheetActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
                 // Re-launching a still-alive singleInstance task only "delivers to top" and never
                 // comes to the foreground (observed on HyperOS). Clearing the task first forces a

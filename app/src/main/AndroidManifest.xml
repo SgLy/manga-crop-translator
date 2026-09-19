@@ -35,7 +35,7 @@
             android:exported="false" />
 
         <activity
-            android:name=".ResultActivity"
+            android:name=".SheetActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
             android:launchMode="singleInstance"

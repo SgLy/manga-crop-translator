@@ -1,21 +1,10 @@
 package me.sgly.translator
 
 import android.content.Intent
-import android.os.Bundle
-import android.view.WindowManager
 import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,23 +17,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.outlined.ArrowDownward
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Surface
@@ -54,352 +34,146 @@ import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
-class ResultActivity : ComponentActivity() {
-    @OptIn(ExperimentalMaterial3Api::class)
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+/** The finished translation: the annotated blocks and the vocabulary strip, with their actions. */
+@Composable
+fun ResultSheet(phase: AppPhase) {
+    val ocrResult by TranslatorState.ocrResult.collectAsState()
+    val translationResult by TranslatorState.translationResult.collectAsState()
 
-        window.addFlags(
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-        )
-        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+    // Every card remembers the block it came from, which is how saving recovers its sentence.
+    val cards =
+        remember(translationResult) {
+            translationResult?.let(::vocabularyCards).orEmpty()
+        }
+    val selectedIndices = remember { mutableStateSetOf<Int>() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val resources = LocalResources.current
 
-        setContent {
-            val colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
-            MaterialTheme(colorScheme = colorScheme) {
-                val phase by TranslatorState.phase.collectAsState()
-                val ocrResult by TranslatorState.ocrResult.collectAsState()
-                val translationResult by TranslatorState.translationResult.collectAsState()
-                val errorText by TranslatorState.errorText.collectAsState()
-                val firstTokenReceived by TranslatorState.firstTokenReceived.collectAsState()
-                val reasoning by TranslatorState.reasoning.collectAsState()
-
-                val ocrStatus =
-                    when (phase) {
-                        AppPhase.Recognizing -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
-                        AppPhase.OcrError -> StepUiStatus.Error
-                        AppPhase.Parsing, AppPhase.Done, AppPhase.TranslateError -> StepUiStatus.Done
-                        else -> StepUiStatus.Idle
-                    }
-                val translateStatus =
-                    when (phase) {
-                        AppPhase.Parsing -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
-                        AppPhase.Done -> StepUiStatus.Done
-                        AppPhase.TranslateError -> StepUiStatus.Error
-                        else -> StepUiStatus.Idle
-                    }
-
-                // The bottom vocabulary strip, and the indices its selection refers to. Every card
-                // remembers the block it came from, which is how saving recovers its sentence.
-                val cards =
-                    remember(translationResult) {
-                        translationResult?.let(::vocabularyCards).orEmpty()
-                    }
-                val scope = rememberCoroutineScope()
-                val context = LocalContext.current
-                val resources = LocalResources.current
-                val showReasoning = remember { SettingsManager(context).showReasoning }
-
-                // Word card selection state
-                val selectedIndices = remember { mutableStateSetOf<Int>() }
-
-                LaunchedEffect(phase) {
-                    if (phase == AppPhase.Idle || phase == AppPhase.Capturing || phase == AppPhase.Cropping) {
-                        finish()
-                    }
-                }
-
-                val isSheetVisible = phase != AppPhase.Idle && phase != AppPhase.Capturing && phase != AppPhase.Cropping
-                if (isSheetVisible) {
-                    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-                    ModalBottomSheet(
-                        onDismissRequest = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
-                        sheetState = sheetState,
-                        scrimColor = Color.Transparent,
-                        dragHandle = { BottomSheetDefaults.DragHandle() },
-                    ) {
-                        Column(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 120.dp)
-                                    .padding(start = 16.dp, end = 16.dp, bottom = 0.dp),
-                        ) {
-                            // Scrollable content area
-                            Column(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 60.dp, max = 400.dp)
-                                        .verticalScroll(rememberScrollState()),
-                            ) {
-                                if (phase != AppPhase.Done && phase != AppPhase.ViewingLast) {
-                                    StepFlow(ocrStatus = ocrStatus, translateStatus = translateStatus)
-
-                                    // Error detail
-                                    if ((phase == AppPhase.OcrError || phase == AppPhase.TranslateError) && errorText.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = errorText,
-                                            color = MaterialTheme.colorScheme.error,
-                                            fontSize = 13.sp,
-                                        )
-                                    }
-                                }
-
-                                // Result area: show structured blocks when both results are available
-                                if (translationResult != null && ocrResult != null) {
-                                    ResultBlocks(
-                                        ocrResult = ocrResult!!,
-                                        translationResult = translationResult!!,
-                                        cards = cards,
-                                        selectedIndices = selectedIndices,
-                                        onToggleSelect = { index ->
-                                            if (selectedIndices.contains(index)) {
-                                                selectedIndices.remove(index)
-                                            } else {
-                                                selectedIndices.add(index)
-                                            }
-                                        },
-                                    )
-                                }
-                            }
-
-                            val inFlight = phase == AppPhase.Recognizing || phase == AppPhase.Parsing
-                            if (showReasoning && inFlight && reasoning.isNotEmpty()) {
-                                ReasoningStrip(reasoning)
-                            }
-
-                            // Fixed bottom bar: show in Done/OcrError/TranslateError phases
-                            if (phase == AppPhase.Done || phase == AppPhase.OcrError || phase == AppPhase.TranslateError ||
-                                phase == AppPhase.ViewingLast
-                            ) {
-                                BottomActionBar(
-                                    phase = phase,
-                                    hasSelection = selectedIndices.isNotEmpty(),
-                                    onDismiss = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
-                                    onRetry = {
-                                        val nextPhase = if (phase == AppPhase.TranslateError) AppPhase.Parsing else AppPhase.Recognizing
-                                        TranslatorState.transition(nextPhase, TransitionReason.Retry)
-                                    },
-                                    onThinkHarder = { TranslatorState.transition(AppPhase.Recognizing, TransitionReason.ThinkHarder) },
-                                    onSave = {
-                                        val occurrences = occurrencesFor(cards, selectedIndices, ocrResult, translationResult)
-                                        scope.launch {
-                                            VocabularyDatabase.get(context).vocabularyDao().record(occurrences)
-                                            val message =
-                                                resources.getQuantityString(
-                                                    R.plurals.saved_words,
-                                                    occurrences.size,
-                                                    occurrences.size,
-                                                )
-                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                            TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss)
-                                        }
-                                    },
-                                    onConfirm = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
-                                )
-                            }
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 120.dp)
+                .padding(start = 16.dp, end = 16.dp),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 60.dp, max = 400.dp)
+                    .verticalScroll(rememberScrollState()),
+        ) {
+            if (ocrResult != null && translationResult != null) {
+                ResultBlocks(
+                    ocrResult = ocrResult!!,
+                    translationResult = translationResult!!,
+                    cards = cards,
+                    selectedIndices = selectedIndices,
+                    onToggleSelect = { index ->
+                        if (selectedIndices.contains(index)) {
+                            selectedIndices.remove(index)
+                        } else {
+                            selectedIndices.add(index)
                         }
+                    },
+                )
+            }
+        }
+
+        ResultActions(
+            phase = phase,
+            hasSelection = selectedIndices.isNotEmpty(),
+            onThinkHarder = { TranslatorState.transition(AppPhase.Recognizing, TransitionReason.ThinkHarder) },
+            onSave = {
+                val occurrences = occurrencesFor(cards, selectedIndices, ocrResult, translationResult)
+                scope.launch {
+                    VocabularyDatabase.get(context).vocabularyDao().record(occurrences)
+                    val message =
+                        resources.getQuantityString(
+                            R.plurals.saved_words,
+                            occurrences.size,
+                            occurrences.size,
+                        )
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss)
+                }
+            },
+            onConfirm = { TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss) },
+        )
+    }
+}
+
+@Composable
+private fun ResultActions(
+    phase: AppPhase,
+    hasSelection: Boolean,
+    onThinkHarder: () -> Unit,
+    onSave: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val context = LocalContext.current
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp, bottom = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton(onClick = {
+            context.startActivity(Intent(context, LogsActivity::class.java))
+        }) {
+            Text(stringResource(R.string.action_logs))
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        when (phase) {
+            AppPhase.Done -> {
+                TextButton(onClick = onThinkHarder) {
+                    Text(stringResource(R.string.action_think_harder))
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                if (hasSelection) {
+                    Button(onClick = onSave) {
+                        Text(stringResource(R.string.action_save))
+                    }
+                } else {
+                    OutlinedButton(onClick = onConfirm) {
+                        Text(stringResource(R.string.action_got_it))
                     }
                 }
             }
+
+            AppPhase.ViewingLast -> {
+                if (hasSelection) {
+                    Button(onClick = onSave) {
+                        Text(stringResource(R.string.action_save))
+                    }
+                } else {
+                    OutlinedButton(onClick = onConfirm) {
+                        Text(stringResource(R.string.action_got_it))
+                    }
+                }
+            }
+
+            else -> {}
         }
-    }
-
-    override fun finish() {
-        super.finish()
-        overridePendingTransition(0, 0)
-    }
-}
-
-enum class StepUiStatus { Idle, Waiting, Streaming, Done, Error }
-
-/** Shows the newest lines of the model's reasoning in a short window that follows the stream. */
-@Composable
-fun ReasoningStrip(reasoning: String) {
-    val lineHeight = 16.sp
-    val verticalPadding = 8.dp
-    val scrollState = rememberScrollState()
-    var lastMaxValue by remember { mutableIntStateOf(0) }
-    val maxValue = scrollState.maxValue
-    LaunchedEffect(maxValue) {
-        // maxValue stays Int.MAX_VALUE until the first layout, so the very first frame must be ignored.
-        if (maxValue == Int.MAX_VALUE || maxValue <= lastMaxValue) return@LaunchedEffect
-        lastMaxValue = maxValue
-        scrollState.animateScrollTo(maxValue, tween(durationMillis = 100, easing = LinearEasing))
-    }
-    // The padding sits above the first line, so it has to be part of the fade as well.
-    val fadeHeight = with(LocalDensity.current) { verticalPadding.toPx() + (lineHeight / 2).toPx() }
-    Text(
-        text = reasoning,
-        fontSize = 12.sp,
-        lineHeight = lineHeight,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                .padding(vertical = verticalPadding)
-                .fadeEdges(fadeHeight)
-                .height(with(LocalDensity.current) { (lineHeight * 5f).toDp() })
-                .verticalScroll(scrollState)
-                .padding(horizontal = 12.dp),
-    )
-}
-
-private fun Modifier.fadeEdges(fadeHeight: Float): Modifier =
-    graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-        .drawWithContent {
-            drawContent()
-            val fade = fadeHeight / size.height
-            drawRect(
-                brush =
-                    Brush.verticalGradient(
-                        0f to Color.Transparent,
-                        fade to Color.Black,
-                        (1f - fade) to Color.Black,
-                        1f to Color.Transparent,
-                    ),
-                blendMode = BlendMode.DstIn,
-            )
-        }
-
-@Composable
-fun StepFlow(
-    ocrStatus: StepUiStatus,
-    translateStatus: StepUiStatus,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        StepRow(label = stringResource(R.string.step_recognize), status = ocrStatus)
-        Spacer(modifier = Modifier.width(40.dp))
-        StepRow(label = stringResource(R.string.step_parse), status = translateStatus)
-    }
-}
-
-@Composable
-fun StepRow(
-    label: String,
-    status: StepUiStatus,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        when (status) {
-            StepUiStatus.Waiting -> {
-                // Request sent, no SSE chunk yet: something is happening, we just cannot see it.
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            StepUiStatus.Streaming -> {
-                // First token has landed: the spinner gives way to a pulsing down arrow,
-                // which reads as "output is flowing" rather than "still waiting".
-                val blink by rememberInfiniteTransition(label = "streamingBlink").animateFloat(
-                    initialValue = 0.25f,
-                    targetValue = 1f,
-                    animationSpec =
-                        infiniteRepeatable(
-                            animation = tween(durationMillis = 400, easing = LinearEasing),
-                            repeatMode = RepeatMode.Reverse,
-                        ),
-                    label = "blinkAlpha",
-                )
-                Icon(
-                    imageVector = Icons.Outlined.ArrowDownward,
-                    contentDescription = stringResource(R.string.cd_streaming),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = blink),
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-
-            StepUiStatus.Done -> {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = "Done",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-
-            StepUiStatus.Error -> {
-                Icon(
-                    imageVector = Icons.Default.Error,
-                    contentDescription = "Error",
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-
-            StepUiStatus.Idle -> {
-                Spacer(modifier = Modifier.size(16.dp))
-            }
-        }
-
-        Spacer(modifier = Modifier.width(4.dp))
-
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color =
-                when (status) {
-                    StepUiStatus.Waiting, StepUiStatus.Streaming -> MaterialTheme.colorScheme.onSurface
-                    StepUiStatus.Done -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    StepUiStatus.Error -> MaterialTheme.colorScheme.error
-                    StepUiStatus.Idle -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                },
-            fontWeight =
-                when (status) {
-                    StepUiStatus.Waiting, StepUiStatus.Streaming -> FontWeight.Medium
-                    else -> FontWeight.Normal
-                },
-        )
     }
 }
 
@@ -670,70 +444,6 @@ fun ResultBlocks(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun BottomActionBar(
-    phase: AppPhase,
-    hasSelection: Boolean,
-    onDismiss: () -> Unit,
-    onRetry: () -> Unit,
-    onThinkHarder: () -> Unit,
-    onSave: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    val context = LocalContext.current
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp, bottom = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TextButton(onClick = {
-            context.startActivity(Intent(context, LogsActivity::class.java))
-        }) {
-            Text(stringResource(R.string.action_logs))
-        }
-        Spacer(modifier = Modifier.weight(1f))
-        when (phase) {
-            AppPhase.Done -> {
-                TextButton(onClick = onThinkHarder) {
-                    Text(stringResource(R.string.action_think_harder))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                if (hasSelection) {
-                    Button(onClick = onSave) {
-                        Text(stringResource(R.string.action_save))
-                    }
-                } else {
-                    OutlinedButton(onClick = onConfirm) {
-                        Text(stringResource(R.string.action_got_it))
-                    }
-                }
-            }
-
-            AppPhase.ViewingLast -> {
-                if (hasSelection) {
-                    Button(onClick = onSave) {
-                        Text(stringResource(R.string.action_save))
-                    }
-                } else {
-                    OutlinedButton(onClick = onConfirm) {
-                        Text(stringResource(R.string.action_got_it))
-                    }
-                }
-            }
-
-            AppPhase.OcrError, AppPhase.TranslateError -> {
-                Button(onClick = onRetry) {
-                    Text(stringResource(R.string.action_retry))
-                }
-            }
-
-            else -> {}
         }
     }
 }
