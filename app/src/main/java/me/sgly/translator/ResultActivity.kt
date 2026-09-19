@@ -157,7 +157,7 @@ class ResultActivity : ComponentActivity() {
                                         .verticalScroll(rememberScrollState()),
                             ) {
                                 // Show step rows while not yet Done
-                                if (phase != AppPhase.Done) {
+                                if (phase != AppPhase.Done && phase != AppPhase.ViewingLast) {
                                     StepRow(label = stringResource(R.string.step_recognize), status = ocrStatus)
 
                                     // TranslateModel row visible after OCR phase
@@ -196,7 +196,9 @@ class ResultActivity : ComponentActivity() {
                             }
 
                             // Fixed bottom bar: show in Done/OcrError/TranslateError phases
-                            if (phase == AppPhase.Done || phase == AppPhase.OcrError || phase == AppPhase.TranslateError) {
+                            if (phase == AppPhase.Done || phase == AppPhase.OcrError || phase == AppPhase.TranslateError ||
+                                phase == AppPhase.ViewingLast
+                            ) {
                                 BottomActionBar(
                                     phase = phase,
                                     hasSelection = selectedIndices.isNotEmpty(),
@@ -623,6 +625,18 @@ fun BottomActionBar(
                     Text(stringResource(R.string.action_think_harder))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
+                if (hasSelection) {
+                    Button(onClick = onSave) {
+                        Text(stringResource(R.string.action_save))
+                    }
+                } else {
+                    OutlinedButton(onClick = onConfirm) {
+                        Text(stringResource(R.string.action_got_it))
+                    }
+                }
+            }
+
+            AppPhase.ViewingLast -> {
                 if (hasSelection) {
                     Button(onClick = onSave) {
                         Text(stringResource(R.string.action_save))

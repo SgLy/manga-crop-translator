@@ -17,10 +17,12 @@ enum class AppPhase {
     Done, // Result sheet open, both steps complete
     OcrError, // Result sheet open, OCR failed
     TranslateError, // Result sheet open, TranslateModel failed (OCR result preserved)
+    ViewingLast, // Result sheet open, showing the previous result
 }
 
 enum class TransitionReason {
     FabClicked, // Idle → Capturing
+    FabLongPressed, // Idle → ViewingLast
     FrameCaptured, // Capturing → Cropping
     CaptureError, // Capturing → Idle (mediaProjection not ready)
     CropSelected, // Cropping → Recognizing
@@ -39,6 +41,12 @@ data class Transition(
     val from: AppPhase,
     val to: AppPhase,
     val reason: TransitionReason,
+)
+
+/** The last completed translation, kept so a long press on the FAB can bring it back. */
+data class LastTranslation(
+    val ocr: OcrResult,
+    val translation: TranslationResult,
 )
 
 object TranslatorState {
@@ -81,6 +89,10 @@ object TranslatorState {
     // Raw bitmaps: not observed reactively by UI, read directly when needed
     var capturedBitmap: Bitmap? = null
     var croppedBitmap: Bitmap? = null
+
+    /** The last completed translation. Survives a dismiss, so the FAB can hand it back. */
+    var lastTranslation: LastTranslation? = null
+        private set
 
     // Result data: observed reactively by UI components
     private val _ocrResult = MutableStateFlow<OcrResult?>(null)
@@ -138,6 +150,24 @@ object TranslatorState {
                 _thinkingLevelIndex.value = 0
             }
 
+            TransitionReason.FabLongPressed -> {
+                // Show the previous result again without re-running anything.
+                lastTranslation?.let {
+                    _ocrResult.value = it.ocr
+                    _translationResult.value = it.translation
+                }
+                _errorText.value = ""
+            }
+
+            TransitionReason.TranslateSuccess -> {
+                // Keep the finished pair so a later long press can show it again.
+                val ocr = _ocrResult.value
+                val translation = _translationResult.value
+                if (ocr != null && translation != null) {
+                    lastTranslation = LastTranslation(ocr, translation)
+                }
+            }
+
             TransitionReason.ThinkHarder -> {
                 // Re-run OCR with same crop: clear both results and think harder
                 _ocrResult.value = null
@@ -154,10 +184,19 @@ object TranslatorState {
                 // TranslateError retry preserves ocrResult (only re-runs TranslateModel)
             }
 
+            TransitionReason.Reset -> {
+                capturedBitmap = null
+                croppedBitmap = null
+                _ocrResult.value = null
+                _translationResult.value = null
+                _errorText.value = ""
+                _thinkingLevelIndex.value = 0
+                lastTranslation = null
+            }
+
             TransitionReason.Dismiss,
             TransitionReason.CropCancelled,
             TransitionReason.CaptureError,
-            TransitionReason.Reset,
             -> {
                 capturedBitmap = null
                 croppedBitmap = null
@@ -182,6 +221,7 @@ object TranslatorState {
         val from = _phase.value
         capturedBitmap = null
         croppedBitmap = null
+        lastTranslation = null
         _ocrResult.value = null
         _translationResult.value = null
         _errorText.value = ""

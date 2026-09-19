@@ -12,11 +12,14 @@ import android.media.projection.MediaProjectionManager
 import android.os.IBinder
 import android.util.AttributeSet
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.view.WindowManager.LayoutParams
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,6 +69,7 @@ class FloatingService :
             AppPhase.Done,
             AppPhase.OcrError,
             AppPhase.TranslateError,
+            AppPhase.ViewingLast,
         )
 
     private val serviceScope = CoroutineScope(Dispatchers.Main)
@@ -149,10 +153,16 @@ class FloatingService :
                     }
 
                     AppPhase.Recognizing -> {
+                        val cropped = TranslatorState.croppedBitmap
+                        if (cropped == null) {
+                            AppLog.i("TranslatorState", "Recognizing with no cropped bitmap; back to Idle")
+                            TranslatorState.transition(AppPhase.Idle, TransitionReason.Dismiss)
+                            return@collectLatest
+                        }
                         try {
                             val result =
                                 openAIApiClient.extractTextFromImage(
-                                    TranslatorState.croppedBitmap!!,
+                                    cropped,
                                     TranslatorState.currentThinkingEffort(),
                                     onOutputDelta = { TranslatorState.onOutputDelta(it) },
                                 )
@@ -189,7 +199,7 @@ class FloatingService :
                         }
                     }
 
-                    else -> { /* Idle/Done/OcrError/TranslateError: UI handles these */ }
+                    else -> { /* Idle/ViewingLast/Done/OcrError/TranslateError: UI handles these */ }
                 }
             }
         }
@@ -279,6 +289,7 @@ class FloatingService :
             params.y = (metrics.heightPixels - containerSize - bottomMargin).coerceIn(0, maxY)
         }
 
+        val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
         frameLayout.setOnTouchListener(
             object : View.OnTouchListener {
                 private var initialX = 0
@@ -286,6 +297,13 @@ class FloatingService :
                 private var initialTouchX = 0f
                 private var initialTouchY = 0f
                 private var isDragging = false
+                private var longPressed = false
+                private val longPress =
+                    Runnable {
+                        longPressed = true
+                        frameLayout.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                        onFabLongPressed()
+                    }
 
                 override fun onTouch(
                     v: View,
@@ -298,6 +316,8 @@ class FloatingService :
                             initialTouchX = event.rawX
                             initialTouchY = event.rawY
                             isDragging = false
+                            longPressed = false
+                            v.postDelayed(longPress, longPressTimeout)
                             return true
                         }
 
@@ -305,6 +325,8 @@ class FloatingService :
                             val dx = event.rawX - initialTouchX
                             val dy = event.rawY - initialTouchY
                             if (kotlin.math.abs(dx) > 10 || kotlin.math.abs(dy) > 10) {
+                                // Moving means dragging, which is not the long press.
+                                if (!isDragging) v.removeCallbacks(longPress)
                                 isDragging = true
                             }
                             if (isDragging) {
@@ -315,13 +337,14 @@ class FloatingService :
                             return true
                         }
 
-                        MotionEvent.ACTION_UP -> {
-                            if (!isDragging) {
-                                v.performClick()
-                            } else {
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            v.removeCallbacks(longPress)
+                            if (isDragging) {
                                 // Persist the dragged position so it survives restarts.
                                 settingsManager.fabX = params.x
                                 settingsManager.fabY = params.y
+                            } else if (!longPressed) {
+                                v.performClick()
                             }
                             return true
                         }
@@ -334,6 +357,16 @@ class FloatingService :
         floatingView = frameLayout
         windowManager.addView(floatingView, params)
         updateFabVisibility()
+    }
+
+    /** Brings the last completed translation back on screen; says so when there is none. */
+    private fun onFabLongPressed() {
+        if (TranslatorState.lastTranslation == null) {
+            Toast.makeText(this, R.string.no_last_result, Toast.LENGTH_SHORT).show()
+            return
+        }
+        TranslatorState.transition(AppPhase.ViewingLast, TransitionReason.FabLongPressed)
+        showResultSheet(clearTask = true)
     }
 
     /**
