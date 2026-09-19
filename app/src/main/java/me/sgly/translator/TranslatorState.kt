@@ -64,6 +64,9 @@ object TranslatorState {
     private val _firstTokenReceived = MutableStateFlow(false)
     val firstTokenReceived: StateFlow<Boolean> = _firstTokenReceived.asStateFlow()
 
+    private val _reasoning = MutableStateFlow("")
+    val reasoning: StateFlow<String> = _reasoning.asStateFlow()
+
     private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
     val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
 
@@ -129,9 +132,16 @@ object TranslatorState {
         _firstTokenReceived.value = true
     }
 
+    /** Called with every streamed reasoning delta of the in-flight request. */
+    fun onReasoningDelta(delta: String) {
+        _reasoning.value += delta
+        _firstTokenReceived.value = true
+    }
+
     /** Back to "nothing received yet" — called whenever a new streaming phase starts. */
     private fun resetStreamProgress() {
         _firstTokenReceived.value = false
+        _reasoning.value = ""
     }
 
     /**

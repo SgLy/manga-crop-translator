@@ -341,6 +341,7 @@ fun SettingsScreen(
     var useVisualModelForTranslation by remember { mutableStateOf(settingsManager.useVisualModelForTranslation) }
     var thinkingLevels by remember { mutableStateOf(settingsManager.thinkingLevels) }
     var forwardLogsToLogcat by remember { mutableStateOf(settingsManager.forwardLogsToLogcat) }
+    var showReasoning by remember { mutableStateOf(settingsManager.showReasoning) }
 
     Scaffold(
         modifier = modifier,
@@ -474,6 +475,26 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = stringResource(R.string.show_reasoning),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = showReasoning,
+                    onCheckedChange = {
+                        showReasoning = it
+                        settingsManager.showReasoning = it
+                    },
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 

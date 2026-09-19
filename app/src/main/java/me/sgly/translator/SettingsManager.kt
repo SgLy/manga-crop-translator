@@ -43,6 +43,11 @@ class SettingsManager(
         get() = prefs.getBoolean("forwardLogsToLogcat", false)
         set(value) = prefs.edit { putBoolean("forwardLogsToLogcat", value) }
 
+    /** When true, the result sheet shows the model's streamed reasoning in a strip above the actions. */
+    var showReasoning: Boolean
+        get() = prefs.getBoolean("showReasoning", false)
+        set(value) = prefs.edit { putBoolean("showReasoning", value) }
+
     /** Raw thinking-strength string, split on non-letters. */
     var thinkingLevels: String
         get() = prefs.getString("thinkingLevels", "low,high,max") ?: "low,high,max"

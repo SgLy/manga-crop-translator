@@ -40,4 +40,5 @@
     <string name="entry_deleted">Deleted</string>
     <string name="delete_word_title">Delete “%1$s”?</string>
     <string name="no_last_result">Nothing to show yet — translate something first.</string>
+    <string name="show_reasoning">Show reasoning</string>
 </resources>

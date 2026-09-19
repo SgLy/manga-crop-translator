@@ -165,6 +165,7 @@ class FloatingService :
                                     cropped,
                                     TranslatorState.currentThinkingEffort(),
                                     onOutputDelta = { TranslatorState.onOutputDelta(it) },
+                                    onReasoningDelta = { TranslatorState.onReasoningDelta(it) },
                                 )
                             if (result.blocks.isEmpty()) {
                                 TranslatorState.setErrorText(
@@ -190,6 +191,7 @@ class FloatingService :
                                     ocrText,
                                     TranslatorState.currentThinkingEffort(),
                                     onOutputDelta = { TranslatorState.onOutputDelta(it) },
+                                    onReasoningDelta = { TranslatorState.onReasoningDelta(it) },
                                 )
                             TranslatorState.setTranslationResult(result)
                             TranslatorState.transition(AppPhase.Done, TransitionReason.TranslateSuccess)

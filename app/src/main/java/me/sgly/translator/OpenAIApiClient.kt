@@ -43,6 +43,7 @@ class OpenAIApiClient(
         bitmap: Bitmap,
         thinkingEffort: String,
         onOutputDelta: suspend (String) -> Unit = {},
+        onReasoningDelta: suspend (String) -> Unit = {},
     ): OcrResult =
         withContext(Dispatchers.IO) {
             val base64Image = bitmapToBase64(bitmap)
@@ -128,6 +129,7 @@ class OpenAIApiClient(
                 val source = response.body.source()
                 val contentBuilder = java.lang.StringBuilder()
                 val functionArguments = java.lang.StringBuilder()
+                val reasoningBuilder = java.lang.StringBuilder()
 
                 while (!source.exhausted()) {
                     val line = source.readUtf8Line() ?: continue
@@ -143,7 +145,8 @@ class OpenAIApiClient(
                             if (delta != null) {
                                 val reasoning = delta.optString("reasoning_content", "")
                                 if (reasoning.isNotEmpty()) {
-                                    onOutputDelta(reasoning)
+                                    onReasoningDelta(reasoning)
+                                    reasoningBuilder.append(reasoning)
                                 }
 
                                 val content = delta.optString("content", "")
@@ -178,6 +181,10 @@ class OpenAIApiClient(
                     }
                 }
 
+                if (reasoningBuilder.isNotEmpty()) {
+                    AppLog.i("OpenAIReasoning", reasoningBuilder.toString())
+                }
+
                 val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
                 AppLog.d("MangaVisualModel") { "\u2190 Assembled final JSON:\n$finalJson" }
                 if (finalJson.isNotEmpty()) {
@@ -203,6 +210,7 @@ class OpenAIApiClient(
         japaneseText: String,
         thinkingEffort: String,
         onOutputDelta: suspend (String) -> Unit = {},
+        onReasoningDelta: suspend (String) -> Unit = {},
     ): TranslationResult =
         withContext(Dispatchers.IO) {
             val useVisualModel = settingsManager.useVisualModelForTranslation
@@ -277,6 +285,7 @@ class OpenAIApiClient(
                 val source = response.body.source()
                 val contentBuilder = java.lang.StringBuilder()
                 val functionArguments = java.lang.StringBuilder()
+                val reasoningBuilder = java.lang.StringBuilder()
 
                 while (!source.exhausted()) {
                     val line = source.readUtf8Line() ?: continue
@@ -292,7 +301,8 @@ class OpenAIApiClient(
                             if (delta != null) {
                                 val reasoning = delta.optString("reasoning_content", "")
                                 if (reasoning.isNotEmpty()) {
-                                    onOutputDelta(reasoning)
+                                    onReasoningDelta(reasoning)
+                                    reasoningBuilder.append(reasoning)
                                 }
 
                                 val content = delta.optString("content", "")
@@ -325,6 +335,10 @@ class OpenAIApiClient(
                     } catch (e: Exception) {
                         // Ignore JSON parse errors for incomplete chunks
                     }
+                }
+
+                if (reasoningBuilder.isNotEmpty()) {
+                    AppLog.i("OpenAIReasoning", reasoningBuilder.toString())
                 }
 
                 val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()

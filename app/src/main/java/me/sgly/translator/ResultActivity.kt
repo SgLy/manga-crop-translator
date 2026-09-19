@@ -62,13 +62,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -96,6 +105,7 @@ class ResultActivity : ComponentActivity() {
                 val translationResult by TranslatorState.translationResult.collectAsState()
                 val errorText by TranslatorState.errorText.collectAsState()
                 val firstTokenReceived by TranslatorState.firstTokenReceived.collectAsState()
+                val reasoning by TranslatorState.reasoning.collectAsState()
 
                 val ocrStatus =
                     when (phase) {
@@ -121,6 +131,7 @@ class ResultActivity : ComponentActivity() {
                 val scope = rememberCoroutineScope()
                 val context = LocalContext.current
                 val resources = LocalResources.current
+                val showReasoning = remember { SettingsManager(context).showReasoning }
 
                 // Word card selection state
                 val selectedIndices = remember { mutableStateSetOf<Int>() }
@@ -156,15 +167,8 @@ class ResultActivity : ComponentActivity() {
                                         .heightIn(min = 60.dp, max = 400.dp)
                                         .verticalScroll(rememberScrollState()),
                             ) {
-                                // Show step rows while not yet Done
                                 if (phase != AppPhase.Done && phase != AppPhase.ViewingLast) {
-                                    StepRow(label = stringResource(R.string.step_recognize), status = ocrStatus)
-
-                                    // TranslateModel row visible after OCR phase
-                                    if (phase != AppPhase.Recognizing && phase != AppPhase.OcrError) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        StepRow(label = stringResource(R.string.step_parse), status = translateStatus)
-                                    }
+                                    StepFlow(ocrStatus = ocrStatus, translateStatus = translateStatus)
 
                                     // Error detail
                                     if ((phase == AppPhase.OcrError || phase == AppPhase.TranslateError) && errorText.isNotEmpty()) {
@@ -193,6 +197,11 @@ class ResultActivity : ComponentActivity() {
                                         },
                                     )
                                 }
+                            }
+
+                            val inFlight = phase == AppPhase.Recognizing || phase == AppPhase.Parsing
+                            if (showReasoning && inFlight && reasoning.isNotEmpty()) {
+                                ReasoningStrip(reasoning)
                             }
 
                             // Fixed bottom bar: show in Done/OcrError/TranslateError phases
@@ -240,6 +249,77 @@ class ResultActivity : ComponentActivity() {
 
 enum class StepUiStatus { Idle, Waiting, Streaming, Done, Error }
 
+/** Shows the newest lines of the model's reasoning in a short window that follows the stream. */
+@Composable
+fun ReasoningStrip(reasoning: String) {
+    val lineHeight = 16.sp
+    val verticalPadding = 8.dp
+    val scrollState = rememberScrollState()
+    var lastMaxValue by remember { mutableIntStateOf(0) }
+    val maxValue = scrollState.maxValue
+    LaunchedEffect(maxValue) {
+        // maxValue stays Int.MAX_VALUE until the first layout, so the very first frame must be ignored.
+        if (maxValue == Int.MAX_VALUE || maxValue <= lastMaxValue) return@LaunchedEffect
+        lastMaxValue = maxValue
+        scrollState.animateScrollTo(maxValue, tween(durationMillis = 100, easing = LinearEasing))
+    }
+    // The padding sits above the first line, so it has to be part of the fade as well.
+    val fadeHeight = with(LocalDensity.current) { verticalPadding.toPx() + (lineHeight / 2).toPx() }
+    Text(
+        text = reasoning,
+        fontSize = 12.sp,
+        lineHeight = lineHeight,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .padding(vertical = verticalPadding)
+                .fadeEdges(fadeHeight)
+                .height(with(LocalDensity.current) { (lineHeight * 5f).toDp() })
+                .verticalScroll(scrollState)
+                .padding(horizontal = 12.dp),
+    )
+}
+
+private fun Modifier.fadeEdges(fadeHeight: Float): Modifier =
+    graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+        .drawWithContent {
+            drawContent()
+            val fade = fadeHeight / size.height
+            drawRect(
+                brush =
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        fade to Color.Black,
+                        (1f - fade) to Color.Black,
+                        1f to Color.Transparent,
+                    ),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+
+@Composable
+fun StepFlow(
+    ocrStatus: StepUiStatus,
+    translateStatus: StepUiStatus,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StepRow(label = stringResource(R.string.step_recognize), status = ocrStatus)
+        Spacer(modifier = Modifier.width(40.dp))
+        StepRow(label = stringResource(R.string.step_parse), status = translateStatus)
+    }
+}
+
 @Composable
 fun StepRow(
     label: String,
@@ -247,7 +327,6 @@ fun StepRow(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth(),
     ) {
         when (status) {
             StepUiStatus.Waiting -> {
@@ -303,11 +382,11 @@ fun StepRow(
             }
         }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(4.dp))
 
         Text(
             text = label,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
             color =
                 when (status) {
                     StepUiStatus.Waiting, StepUiStatus.Streaming -> MaterialTheme.colorScheme.onSurface
