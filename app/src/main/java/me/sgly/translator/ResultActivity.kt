@@ -379,13 +379,14 @@ private fun chunkPlainText(text: String): List<String> =
 private fun Char.isAsciiWordChar(): Boolean = isLetterOrDigit() && code < 0x80
 
 /**
- * A source word with its gloss underneath and, for loanwords, a "+" that reveals the etymology.
- * The whole word is the tooltip anchor so it is easy to hit with a thumb.
+ * A source word with its gloss underneath, tooltipped with the reading — or, on a loanword, with the
+ * etymology, marked by a "+". The whole word is the anchor so it is easy to hit with a thumb.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AnnotatedWord(token: SourceToken.Annotated) {
     val origin = token.word.origin?.takeIf { it.isNotBlank() }
+    val tooltip = origin ?: token.word.reading
 
     val word: @Composable () -> Unit = {
         Column(
@@ -434,23 +435,19 @@ private fun AnnotatedWord(token: SourceToken.Annotated) {
         }
     }
 
-    if (origin == null) {
-        word()
-    } else {
-        val tooltipState = rememberTooltipState()
-        val scope = rememberCoroutineScope()
-        TooltipBox(
-            positionProvider =
-                TooltipDefaults.rememberTooltipPositionProvider(
-                    TooltipAnchorPosition.Below,
-                ),
-            state = tooltipState,
-            enableUserInput = false,
-            tooltip = { PlainTooltip { Text(origin) } },
-        ) {
-            Box(modifier = Modifier.clickable { scope.launch { tooltipState.show() } }) {
-                word()
-            }
+    val tooltipState = rememberTooltipState()
+    val scope = rememberCoroutineScope()
+    TooltipBox(
+        positionProvider =
+            TooltipDefaults.rememberTooltipPositionProvider(
+                TooltipAnchorPosition.Below,
+            ),
+        state = tooltipState,
+        enableUserInput = false,
+        tooltip = { PlainTooltip { Text(tooltip) } },
+    ) {
+        Box(modifier = Modifier.clickable { scope.launch { tooltipState.show() } }) {
+            word()
         }
     }
 }
@@ -665,6 +662,7 @@ private fun occurrencesFor(
         val sentence = blocks.getOrNull(card.blockIndex)?.joinToString("") ?: return@mapNotNull null
         VocabularyOccurrence(
             lemma = card.word.lemma,
+            reading = card.word.reading,
             origin = card.word.origin.orEmpty(),
             surface = card.word.word,
             definition = card.word.definition,

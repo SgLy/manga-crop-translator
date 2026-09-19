@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.Flow
 data class VocabularyWord(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val lemma: String,
+    /** The lemma read out in hiragana, e.g. 天気 → てんき; empty on headwords older than this field. */
+    val reading: String,
     /** Etymology as reported by the model, e.g. "karte[德]"; empty when the word is not a loanword. */
     val origin: String,
 )
@@ -60,6 +62,7 @@ data class VocabularyEntry(
  */
 data class VocabularyOccurrence(
     val lemma: String,
+    val reading: String,
     val origin: String,
     val surface: String,
     val definition: String,
@@ -96,15 +99,19 @@ abstract class VocabularyDao {
 
     /**
      * Records every occurrence in one transaction. A lemma met for the first time gets a headword
-     * row carved out of the first occurrence; later entries reuse that row and keep the origin
-     * recorded back then.
+     * row carved out of the first occurrence; later entries reuse that row and keep the origin and
+     * reading recorded back then.
      */
     @Transaction
     open suspend fun record(occurrences: List<VocabularyOccurrence>) {
         for (occurrence in occurrences) {
             val inserted =
                 insertWordIfAbsent(
-                    VocabularyWord(lemma = occurrence.lemma, origin = occurrence.origin),
+                    VocabularyWord(
+                        lemma = occurrence.lemma,
+                        reading = occurrence.reading,
+                        origin = occurrence.origin,
+                    ),
                 )
             // -1 means the unique lemma index rejected the insert, so the headword row already exists.
             val wordId =
@@ -170,7 +177,7 @@ abstract class VocabularyDao {
 
 @Database(
     entities = [VocabularyWord::class, VocabularyEntry::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class VocabularyDatabase : RoomDatabase() {

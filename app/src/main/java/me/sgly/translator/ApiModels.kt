@@ -15,6 +15,8 @@ data class TranslationWord(
     val word: String,
     @Description("该词去掉变体后的辞书原型")
     val lemma: String,
+    @Description("原型的读音，写成平假名，例如 天気 → てんき")
+    val reading: String,
     @Description("简明扼要的中文释义")
     val definition: String,
     @Description("外来语词源，格式「原词[原语言]」，例如 karte[德]；非外来语时为 null")

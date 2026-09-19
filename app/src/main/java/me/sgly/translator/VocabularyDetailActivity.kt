@@ -160,28 +160,35 @@ class VocabularyDetailActivity : ComponentActivity() {
     }
 }
 
-/** The headword in display size, with its etymology beside it on the same baseline. */
+/** The headword in display size, its reading underneath and its etymology beside it on the baseline. */
 @Composable
 private fun HeadwordRow(
     word: VocabularyWord,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier) {
-        Text(
-            text = word.lemma,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.alignByBaseline(),
-        )
-        if (word.origin.isNotEmpty()) {
-            Spacer(modifier = Modifier.width(10.dp))
+    Column(modifier = modifier) {
+        Row {
             Text(
-                text = word.origin,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = word.lemma,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.alignByBaseline(),
             )
+            if (word.origin.isNotEmpty()) {
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = word.origin,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.alignByBaseline(),
+                )
+            }
         }
+        Text(
+            text = word.reading,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
