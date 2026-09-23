@@ -52,6 +52,23 @@ data class LastTranslation(
     val translation: TranslationResult,
 )
 
+/** Thinking strength a model can be asked for, weakest first. */
+enum class ThinkingLevel {
+    Low,
+    Medium,
+    High,
+    Max,
+    ;
+
+    /** The effort token the API expects for this level. */
+    val effort: String get() = name.lowercase()
+
+    companion object {
+        /** Sequence a fresh install starts with, and the fallback when the stored one is unusable. */
+        val defaultSequence = listOf(Low, High, Max)
+    }
+}
+
 object TranslatorState {
     private val _phase = MutableStateFlow(AppPhase.Idle)
     val phase: StateFlow<AppPhase> = _phase.asStateFlow()
@@ -73,23 +90,23 @@ object TranslatorState {
     private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
     val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
 
-    // Thinking ladder: user-configured effort tokens, walked by index on each ThinkHarder.
-    private var thinkingLevels: List<String> = listOf("low", "high", "max")
+    // Thinking sequence: the levels chosen in settings, walked by index on each ThinkHarder.
+    private var thinkingSequence: List<ThinkingLevel> = ThinkingLevel.defaultSequence
     private val _thinkingLevelIndex = MutableStateFlow(0)
     val thinkingLevelIndex: StateFlow<Int> = _thinkingLevelIndex.asStateFlow()
 
-    /** Installs the parsed thinking ladder (from settings) and resets to the first level. */
-    fun setThinkingLevels(levels: List<String>) {
-        thinkingLevels = levels.ifEmpty { listOf("low", "high", "max") }
+    /** Installs the sequence chosen in settings and resets to its first level. */
+    fun setThinkingSequence(sequence: List<ThinkingLevel>) {
+        thinkingSequence = sequence.ifEmpty { ThinkingLevel.defaultSequence }
         _thinkingLevelIndex.value = 0
     }
 
     /** Effort token for the current level, e.g. "high". */
-    fun currentThinkingEffort(): String = thinkingLevels.getOrElse(_thinkingLevelIndex.value) { thinkingLevels.last() }
+    fun currentThinkingEffort(): String = thinkingSequence.getOrElse(_thinkingLevelIndex.value) { thinkingSequence.last() }.effort
 
     private fun escalateThinking() {
         _thinkingLevelIndex.value =
-            (_thinkingLevelIndex.value + 1).coerceAtMost(thinkingLevels.lastIndex)
+            (_thinkingLevelIndex.value + 1).coerceAtMost(thinkingSequence.lastIndex)
     }
 
     // Raw bitmaps: not observed reactively by UI, read directly when needed

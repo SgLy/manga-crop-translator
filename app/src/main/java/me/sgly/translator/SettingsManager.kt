@@ -48,18 +48,10 @@ class SettingsManager(
         get() = prefs.getBoolean("showReasoning", false)
         set(value) = prefs.edit { putBoolean("showReasoning", value) }
 
-    /** Raw thinking-strength string, split on non-letters. */
-    var thinkingLevels: String
-        get() = prefs.getString("thinkingLevels", "low,high,max") ?: "low,high,max"
-        set(value) = prefs.edit { putString("thinkingLevels", value) }
-
-    /** Parsed thinking ladder, e.g. "low,high,max" → [low, high, max]. */
-    val thinkingLevelList: List<String>
-        get() =
-            thinkingLevels
-                .split(Regex("[^a-zA-Z]+"))
-                .filter { it.isNotBlank() }
-                .ifEmpty { listOf("low", "high", "max") }
+    /** The thinking sequence, first level tried first; each "think harder" steps up one. */
+    var thinkingSequence: List<ThinkingLevel>
+        get() = parseThinkingSequence(prefs.getString("thinkingLevels", null))
+        set(value) = prefs.edit { putString("thinkingLevels", value.joinToString(",") { it.effort }) }
 
     /** Last floating-button position (TOP|START gravity). -1 means "not set yet". */
     var fabX: Int
@@ -70,3 +62,13 @@ class SettingsManager(
         get() = prefs.getInt("fabY", -1)
         set(value) = prefs.edit { putInt("fabY", value) }
 }
+
+private val thinkingLevelSeparator = Regex("[^a-zA-Z]+")
+
+/** Tolerant of what the old free-text field let through, e.g. "low, high" or "low/high/max". */
+private fun parseThinkingSequence(raw: String?): List<ThinkingLevel> =
+    raw
+        .orEmpty()
+        .split(thinkingLevelSeparator)
+        .mapNotNull { token -> ThinkingLevel.entries.firstOrNull { it.effort == token } }
+        .ifEmpty { ThinkingLevel.defaultSequence }

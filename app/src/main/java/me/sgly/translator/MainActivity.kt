@@ -5,52 +5,66 @@ import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material3.AppBarWithSearch
+import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SearchBarState
+import androidx.compose.material3.SearchBarValue
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -62,7 +76,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
-import kotlin.coroutines.cancellation.CancellationException
 
 class MainActivity : ComponentActivity() {
     private val notificationPermissionLauncher =
@@ -104,45 +117,77 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             CropTranslatorTheme {
-                var showSettings by remember { mutableStateOf(false) }
-
-                Box(modifier = Modifier.fillMaxSize()) {
-                    HomeScreen(
-                        onOpenSettings = { showSettings = true },
-                        onStartClicked = { checkPermissionsAndStart() },
-                    )
-
-                    if (showSettings) {
-                        // 0f = fully shown, 1f = slid off to the right.
-                        val progress = remember { Animatable(1f) }
-                        val scope = rememberCoroutineScope()
-                        LaunchedEffect(Unit) {
-                            progress.animateTo(0f, animationSpec = tween(durationMillis = 250))
-                        }
-                        PredictiveBackHandler(enabled = true) { progressEvents ->
-                            try {
-                                progressEvents.collect { event ->
-                                    progress.snapTo(event.progress)
-                                }
-                                showSettings = false
-                            } catch (e: CancellationException) {
-                                progress.animateTo(0f, animationSpec = tween(durationMillis = 200))
-                                throw e
-                            }
-                        }
-                        SettingsScreen(
-                            settingsManager = settingsManager,
-                            onBack = {
-                                scope.launch {
-                                    progress.animateTo(1f, animationSpec = tween(durationMillis = 250))
-                                    showSettings = false
-                                }
-                            },
-                            modifier =
-                                Modifier.graphicsLayer {
-                                    translationX = size.width * progress.value
-                                },
+                // Hoisted above the tab switch: switching tabs destroys the page, and both the list
+                // and the search bar must come back with what they already had.
+                val context = LocalContext.current
+                val summaries by remember {
+                    VocabularyDatabase.get(context).vocabularyDao().summaries()
+                }.collectAsState(initial = null)
+                val searchQuery = rememberTextFieldState()
+                val searchBarState =
+                    remember {
+                        SearchBarState(
+                            initialValue = SearchBarValue.Collapsed,
+                            animationSpecForExpand = spring<Float>(),
+                            animationSpecForCollapse = spring<Float>(),
                         )
+                    }
+
+                var destination by rememberSaveable { mutableStateOf(Destination.Words) }
+                val snackbarHostState = remember { SnackbarHostState() }
+                val scope = rememberCoroutineScope()
+                val resources = LocalResources.current
+
+                Scaffold(
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    snackbarHost = { SnackbarHost(snackbarHostState) },
+                    topBar = {
+                        if (destination == Destination.Words) {
+                            SearchTopBar(
+                                query = searchQuery,
+                                state = searchBarState,
+                                onSearch = { term ->
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(resources.getString(R.string.search_done, term))
+                                    }
+                                },
+                            )
+                        }
+                    },
+                    bottomBar = {
+                        Box {
+                            ShortNavigationBar {
+                                ShortNavigationBarItem(
+                                    selected = destination == Destination.Words,
+                                    onClick = { destination = Destination.Words },
+                                    icon = { Icon(painter = painterResource(R.drawable.ic_menu_book), contentDescription = null) },
+                                    label = { Text(stringResource(R.string.nav_word_list_title)) },
+                                )
+                                Spacer(modifier = Modifier)
+                                ShortNavigationBarItem(
+                                    selected = destination == Destination.Settings,
+                                    onClick = { destination = Destination.Settings },
+                                    icon = { Icon(painter = painterResource(R.drawable.ic_settings), contentDescription = null) },
+                                    label = { Text(stringResource(R.string.nav_settings_title)) },
+                                )
+                            }
+                            StartButton(
+                                onClick = { checkPermissionsAndStart() },
+                                modifier = Modifier.align(Alignment.TopCenter),
+                            )
+                        }
+                    },
+                ) { innerPadding ->
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding),
+                    ) {
+                        when (destination) {
+                            Destination.Words -> summaries?.let { HomeScreen(summaries = it) }
+                            Destination.Settings -> SettingsScreen(settingsManager)
+                        }
                     }
                 }
             }
@@ -150,8 +195,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkPermissionsAndStart() {
-        // Install the parsed thinking ladder before resetting the state machine.
-        TranslatorState.setThinkingLevels(settingsManager.thinkingLevelList)
+        // Install the parsed thinking sequence before resetting the state machine.
+        TranslatorState.setThinkingSequence(settingsManager.thinkingSequence)
         TranslatorState.reset()
         notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
@@ -175,90 +220,102 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private enum class Destination { Words, Settings }
+
+private val StartButtonSize = 64.dp
+private val StartButtonOverhang = 16.dp
+
+@Composable
+private fun StartButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FilledIconButton(
+        onClick = onClick,
+        shape = CircleShape,
+        modifier =
+            modifier
+                .offset(y = -StartButtonOverhang)
+                .requiredSize(StartButtonSize),
+    ) {
+        Image(
+            painter = painterResource(R.drawable.ic_launcher_foreground),
+            contentDescription = stringResource(R.string.start),
+            colorFilter = ColorFilter.tint(Color.White),
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
-    onOpenSettings: () -> Unit,
-    onStartClicked: () -> Unit,
+private fun SearchTopBar(
+    query: TextFieldState,
+    state: SearchBarState,
+    onSearch: (String) -> Unit,
 ) {
-    val context = LocalContext.current
-    val summaries by remember {
-        VocabularyDatabase.get(context).vocabularyDao().summaries()
-    }.collectAsState(initial = emptyList())
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.home_title)) },
-                actions = {
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_settings),
-                            contentDescription = stringResource(R.string.cd_settings),
-                        )
-                    }
-                },
+    AppBarWithSearch(
+        state = state,
+        inputField = {
+            SearchBarDefaults.InputField(
+                textFieldState = query,
+                searchBarState = state,
+                onSearch = onSearch,
+                placeholder = { Text(stringResource(R.string.search_hint)) },
+                leadingIcon = { Icon(painter = painterResource(R.drawable.ic_search), contentDescription = null) },
             )
         },
-    ) { innerPadding ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp),
-        ) {
+    )
+}
+
+@Composable
+private fun HomeScreen(summaries: List<VocabularySummary>) {
+    val context = LocalContext.current
+
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp),
+    ) {
+        if (summaries.isEmpty()) {
             Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .weight(1f),
+                contentAlignment = Alignment.Center,
             ) {
-                if (summaries.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.vocabulary_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
-                } else {
-                    FlowRow(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        summaries.forEach { summary ->
-                            VocabularyCard(
-                                summary = summary,
-                                onClick = {
-                                    context.startActivity(
-                                        Intent(context, VocabularyDetailActivity::class.java)
-                                            .putExtra(VocabularyDetailActivity.EXTRA_WORD_ID, summary.id),
-                                    )
-                                },
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = stringResource(R.string.vocabulary_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = onStartClicked,
+        } else {
+            FlowRow(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(
-                    text = stringResource(R.string.start),
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                summaries.forEach { summary ->
+                    VocabularyCard(
+                        summary = summary,
+                        onClick = {
+                            context.startActivity(
+                                Intent(context, VocabularyDetailActivity::class.java)
+                                    .putExtra(VocabularyDetailActivity.EXTRA_WORD_ID, summary.id),
+                            )
+                        },
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(24.dp))
         }
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -268,13 +325,11 @@ private fun VocabularyCard(
     summary: VocabularySummary,
     onClick: () -> Unit,
 ) {
-    Box(modifier = Modifier.widthIn(max = 220.dp)) {
-        Surface(
-            onClick = onClick,
-            shape = MaterialTheme.shapes.medium,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            color = MaterialTheme.colorScheme.surface,
-        ) {
+    OutlinedCard(
+        onClick = onClick,
+        modifier = Modifier.widthIn(max = 220.dp),
+    ) {
+        Box {
             Column(
                 modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 12.dp),
             ) {
@@ -297,33 +352,22 @@ private fun VocabularyCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
-        Box(
-            modifier =
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(7.dp)
-                    .size(20.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = summary.entryCount.toString(),
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
+            Badge(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(7.dp),
+            ) {
+                Text(summary.entryCount.toString())
+            }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    settingsManager: SettingsManager,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun SettingsScreen(settingsManager: SettingsManager) {
     val scrollState = rememberScrollState()
 
     var visualModelApiBase by remember { mutableStateOf(settingsManager.visualModelApiBase) }
@@ -335,203 +379,197 @@ fun SettingsScreen(
     var translateModel by remember { mutableStateOf(settingsManager.translateModel) }
 
     var useVisualModelForTranslation by remember { mutableStateOf(settingsManager.useVisualModelForTranslation) }
-    var thinkingLevels by remember { mutableStateOf(settingsManager.thinkingLevels) }
+    var thinkingSequence by remember { mutableStateOf(settingsManager.thinkingSequence) }
     var forwardLogsToLogcat by remember { mutableStateOf(settingsManager.forwardLogsToLogcat) }
     var showReasoning by remember { mutableStateOf(settingsManager.showReasoning) }
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = stringResource(R.string.cd_back),
-                        )
-                    }
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .verticalScroll(scrollState)
+                .padding(start = 24.dp, top = 16.dp, end = 24.dp),
+    ) {
+        SectionTitle(stringResource(R.string.image_recognition_model))
+        Text(
+            text = stringResource(R.string.visual_model_hint),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SettingsField(
+                label = stringResource(R.string.label_base_url),
+                value = visualModelApiBase,
+                onValueChange = {
+                    visualModelApiBase = it
+                    settingsManager.visualModelApiBase = it
                 },
             )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 24.dp),
-        ) {
-            // ---- Image recognition model (VisualModel) ----
-            SectionTitle(stringResource(R.string.image_recognition_model))
-            Text(
-                text = stringResource(R.string.visual_model_hint),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            SettingsField(
+                label = stringResource(R.string.label_api_key),
+                value = visualModelApiKey,
+                password = true,
+                onValueChange = {
+                    visualModelApiKey = it
+                    settingsManager.visualModelApiKey = it
+                },
             )
+            SettingsField(
+                label = stringResource(R.string.label_model),
+                value = visualModel,
+                onValueChange = {
+                    visualModel = it
+                    settingsManager.visualModel = it
+                },
+            )
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+        SwitchRow(
+            label = stringResource(R.string.use_visual_model_for_translation),
+            checked = useVisualModelForTranslation,
+            onCheckedChange = {
+                useVisualModelForTranslation = it
+                settingsManager.useVisualModelForTranslation = it
+            },
+        )
+
+        if (!useVisualModelForTranslation) {
+            Spacer(modifier = Modifier.height(12.dp))
+            SectionTitle(stringResource(R.string.translation_model))
             Spacer(modifier = Modifier.height(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingsField(
                     label = stringResource(R.string.label_base_url),
-                    value = visualModelApiBase,
+                    value = translateModelApiBase,
                     onValueChange = {
-                        visualModelApiBase = it
-                        settingsManager.visualModelApiBase = it
+                        translateModelApiBase = it
+                        settingsManager.translateModelApiBase = it
                     },
                 )
                 SettingsField(
                     label = stringResource(R.string.label_api_key),
-                    value = visualModelApiKey,
+                    value = translateModelApiKey,
                     password = true,
                     onValueChange = {
-                        visualModelApiKey = it
-                        settingsManager.visualModelApiKey = it
+                        translateModelApiKey = it
+                        settingsManager.translateModelApiKey = it
                     },
                 )
                 SettingsField(
                     label = stringResource(R.string.label_model),
-                    value = visualModel,
+                    value = translateModel,
                     onValueChange = {
-                        visualModel = it
-                        settingsManager.visualModel = it
+                        translateModel = it
+                        settingsManager.translateModel = it
                     },
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.height(12.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            // ---- Reuse VisualModel for translation ----
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = stringResource(R.string.use_visual_model_for_translation),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(
-                    checked = useVisualModelForTranslation,
-                    onCheckedChange = {
-                        useVisualModelForTranslation = it
-                        settingsManager.useVisualModelForTranslation = it
-                    },
-                )
-            }
+        SectionTitle(stringResource(R.string.thinking_strength))
+        Spacer(modifier = Modifier.height(8.dp))
+        ThinkingSequence(
+            sequence = thinkingSequence,
+            onChange = {
+                thinkingSequence = it
+                settingsManager.thinkingSequence = it
+            },
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.thinking_strength_hint),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
-            // ---- Translation model (TranslateModel), only when not reusing the VisualModel ----
-            if (!useVisualModelForTranslation) {
-                Spacer(modifier = Modifier.height(12.dp))
-                SectionTitle(stringResource(R.string.translation_model))
-                Spacer(modifier = Modifier.height(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SettingsField(
-                        label = stringResource(R.string.label_base_url),
-                        value = translateModelApiBase,
-                        onValueChange = {
-                            translateModelApiBase = it
-                            settingsManager.translateModelApiBase = it
-                        },
-                    )
-                    SettingsField(
-                        label = stringResource(R.string.label_api_key),
-                        value = translateModelApiKey,
-                        password = true,
-                        onValueChange = {
-                            translateModelApiKey = it
-                            settingsManager.translateModelApiKey = it
-                        },
-                    )
-                    SettingsField(
-                        label = stringResource(R.string.label_model),
-                        value = translateModel,
-                        onValueChange = {
-                            translateModel = it
-                            settingsManager.translateModel = it
-                        },
-                    )
-                }
-            }
+        Spacer(modifier = Modifier.height(12.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
+        SwitchRow(
+            label = stringResource(R.string.show_reasoning),
+            checked = showReasoning,
+            onCheckedChange = {
+                showReasoning = it
+                settingsManager.showReasoning = it
+            },
+        )
 
-            // ---- Thinking strength ladder ----
-            SettingsField(
-                label = stringResource(R.string.thinking_strength),
-                value = thinkingLevels,
-                onValueChange = {
-                    thinkingLevels = it
-                    settingsManager.thinkingLevels = it
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+        SectionTitle(stringResource(R.string.debug_section))
+        SwitchRow(
+            label = stringResource(R.string.forward_logs_to_logcat),
+            checked = forwardLogsToLogcat,
+            onCheckedChange = {
+                forwardLogsToLogcat = it
+                settingsManager.forwardLogsToLogcat = it
+                AppLog.forwardToLogcat = it
+            },
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+@Composable
+private fun ThinkingSequence(
+    sequence: List<ThinkingLevel>,
+    onChange: (List<ThinkingLevel>) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ThinkingLevel.entries.forEach { level ->
+            ToggleButton(
+                checked = level in sequence,
+                onCheckedChange = { checked ->
+                    val next = if (checked) sequence + level else sequence - level
+                    // An empty sequence would silently fall back to the default, so the last level stays on.
+                    if (next.isNotEmpty()) {
+                        onChange(ThinkingLevel.entries.filter { it in next })
+                    }
                 },
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = stringResource(R.string.thinking_strength_hint),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(
-                    text = stringResource(R.string.show_reasoning),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(
-                    checked = showReasoning,
-                    onCheckedChange = {
-                        showReasoning = it
-                        settingsManager.showReasoning = it
-                    },
-                )
+                Text(level.effort)
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ---- Debug ----
-            SectionTitle(stringResource(R.string.debug_section))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = stringResource(R.string.forward_logs_to_logcat),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(
-                    checked = forwardLogsToLogcat,
-                    onCheckedChange = {
-                        forwardLogsToLogcat = it
-                        settingsManager.forwardLogsToLogcat = it
-                        AppLog.forwardToLogcat = it
-                    },
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
 @Composable
-fun SectionTitle(text: String) {
+private fun SwitchRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.primary,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 
 @Composable
-fun SettingsField(
+private fun SettingsField(
     label: String,
     value: String,
     password: Boolean = false,
@@ -541,7 +579,7 @@ fun SettingsField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = if (label.isEmpty()) null else ({ Text(label) }),
+        label = { Text(label) },
         singleLine = true,
         visualTransformation = if (password && !visible) PasswordVisualTransformation() else VisualTransformation.None,
         trailingIcon =

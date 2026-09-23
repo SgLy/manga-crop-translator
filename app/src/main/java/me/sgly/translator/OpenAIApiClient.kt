@@ -323,7 +323,7 @@ class OpenAIApiClient(
 
     /**
      * Thinking is always on; `reasoning_effort` carries the user's effort token verbatim
-     * (e.g. "low" / "high" / "max", as configured in the thinking-strength ladder).
+     * (e.g. "low" / "high" / "max", as configured in the thinking-strength sequence).
      */
     private fun thinkingParams(effort: String): Pair<OpenAIThinkingConfig, String> = OpenAIThinkingConfig("enabled") to effort
 

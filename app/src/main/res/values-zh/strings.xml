@@ -1,9 +1,6 @@
 <resources>
     <string name="app_name">漫画翻译</string>
-    <string name="home_title">漫画框选翻译</string>
-    <string name="settings_title">设置</string>
     <string name="cd_back">返回</string>
-    <string name="cd_settings">设置</string>
     <string name="cd_streaming">正在接收响应</string>
     <string name="start">开始</string>
     <string name="vocabulary_empty">什么都没有，白茫茫一片</string>
@@ -16,7 +13,7 @@
     <string name="use_visual_model_for_translation">同时使用图片识别模型进行翻译</string>
     <string name="translation_model">翻译模型</string>
     <string name="thinking_strength">思考强度</string>
-    <string name="thinking_strength_hint">以非英文字母分隔，每次「再想想」依次递增</string>
+    <string name="thinking_strength_hint">勾选的档位依次递增，每次「再想想」升一级</string>
 
     <string name="debug_section">调试</string>
     <string name="forward_logs_to_logcat">转发日志到 Logcat</string>
@@ -40,4 +37,8 @@
     <string name="action_keep">留下</string>
     <string name="no_last_result">没有可供显示的翻译结果，先翻译一次吧</string>
     <string name="show_reasoning">展示思考过程</string>
+    <string name="search_hint">搜索</string>
+    <string name="search_done">搜索了 %1$s</string>
+    <string name="nav_word_list_title">单词本</string>
+    <string name="nav_settings_title">设置</string>
 </resources>
