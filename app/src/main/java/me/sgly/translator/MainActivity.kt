@@ -170,10 +170,12 @@ class MainActivity : ComponentActivity() {
                                     label = { Text(stringResource(R.string.nav_settings_title)) },
                                 )
                             }
-                            StartButton(
-                                onClick = { checkPermissionsAndStart() },
-                                modifier = Modifier.align(Alignment.TopCenter),
-                            )
+                            Box(modifier = Modifier.matchParentSize()) {
+                                StartButton(
+                                    onClick = { checkPermissionsAndStart() },
+                                    modifier = Modifier.align(Alignment.TopCenter),
+                                )
+                            }
                         }
                     },
                 ) { innerPadding ->
@@ -181,7 +183,8 @@ class MainActivity : ComponentActivity() {
                         modifier =
                             Modifier
                                 .fillMaxSize()
-                                .padding(innerPadding),
+                                .padding(innerPadding)
+                                .padding(bottom = StartButtonOverhang),
                     ) {
                         when (destination) {
                             Destination.WordList -> summaries?.let { VocabularyListScreen(summaries = it) }
