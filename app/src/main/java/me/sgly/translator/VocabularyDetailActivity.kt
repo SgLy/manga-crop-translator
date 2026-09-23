@@ -24,6 +24,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -35,7 +36,8 @@ import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,11 +49,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -77,11 +79,13 @@ class VocabularyDetailActivity : ComponentActivity() {
                 val entryDeleted = stringResource(R.string.entry_deleted)
                 val undoLabel = stringResource(R.string.action_undo)
 
+                val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
                 Scaffold(
                     snackbarHost = { SnackbarHost(snackbarHostState) },
                     topBar = {
-                        TopAppBar(
-                            title = {},
+                        LargeFlexibleTopAppBar(
+                            title = { Text(word?.word?.lemma.orEmpty()) },
+                            subtitle = { Text(word?.word?.let { it.origin.ifEmpty { it.reading } }.orEmpty()) },
                             navigationIcon = {
                                 IconButton(onClick = { finish() }) {
                                     Icon(
@@ -90,6 +94,7 @@ class VocabularyDetailActivity : ComponentActivity() {
                                     )
                                 }
                             },
+                            scrollBehavior = scrollBehavior,
                         )
                     },
                 ) { innerPadding ->
@@ -101,16 +106,12 @@ class VocabularyDetailActivity : ComponentActivity() {
                                     .fillMaxSize()
                                     .padding(innerPadding),
                         ) {
-                            // Outside the list, so a long history scrolls under a headword that stays put.
-                            HeadwordRow(
-                                word = loaded.word,
-                                modifier = Modifier.padding(horizontal = 20.dp),
-                            )
-                            // 80dp of clearance, less the share the first row now carries itself.
-                            Spacer(modifier = Modifier.height(66.dp))
                             val entries = loaded.entries.sortedByDescending { it.createdAt }
                             LazyColumn(
-                                modifier = Modifier.weight(1f),
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .nestedScroll(scrollBehavior.nestedScrollConnection),
                                 contentPadding = PaddingValues(bottom = 10.dp),
                             ) {
                                 items(
@@ -155,38 +156,6 @@ class VocabularyDetailActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_WORD_ID = "wordId"
-    }
-}
-
-/** The headword in display size, its reading underneath and its etymology beside it on the baseline. */
-@Composable
-private fun HeadwordRow(
-    word: VocabularyWord,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier) {
-        Row {
-            Text(
-                text = word.lemma,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.alignByBaseline(),
-            )
-            if (word.origin.isNotEmpty()) {
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = word.origin,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.alignByBaseline(),
-                )
-            }
-        }
-        Text(
-            text = word.reading,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

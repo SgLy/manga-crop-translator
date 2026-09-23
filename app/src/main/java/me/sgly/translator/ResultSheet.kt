@@ -2,7 +2,6 @@ package me.sgly.translator
 
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,12 +24,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PlainTooltip
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
@@ -61,7 +61,7 @@ fun ResultSheet(phase: AppPhase) {
     // Every card remembers the block it came from, which is how saving recovers its sentence.
     val cards =
         remember(translationResult) {
-            translationResult?.let(::vocabularyCards).orEmpty()
+            translationResult?.let(::wordCards).orEmpty()
         }
     val selectedIndices = remember { mutableStateSetOf<Int>() }
     val scope = rememberCoroutineScope()
@@ -140,12 +140,12 @@ private fun ResultActions(
     onConfirm: () -> Unit,
     onShowLogs: () -> Unit,
 ) {
-    Row(
+    HorizontalFloatingToolbar(
+        expanded = true,
         modifier =
             Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp, bottom = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
         TextButton(
             onClick = onShowLogs,
@@ -325,21 +325,21 @@ private fun AnnotatedWord(token: SourceToken.Annotated) {
  * One card in the bottom vocabulary strip. The block index is what makes a card more than a label:
  * it points back at the sentence the word was found in.
  */
-data class VocabularyCard(
+private data class WordCard(
     val blockIndex: Int,
     val word: TranslationWord,
 )
 
 /** The cards of a result, ranked by difficulty — the strip's order, and the indices selection uses. */
-private fun vocabularyCards(result: TranslationResult): List<VocabularyCard> =
+private fun wordCards(result: TranslationResult): List<WordCard> =
     result.results
         .flatMapIndexed { blockIndex, block ->
-            block.columns.flatten().map { VocabularyCard(blockIndex, it) }
+            block.columns.flatten().map { WordCard(blockIndex, it) }
         }.filter { it.word.difficulty != null }
         .sortedByDescending { it.word.difficulty }
 
 @Composable
-fun ResultBlocks(
+private fun ResultBlocks(
     ocrResult: OcrResult,
     translationResult: TranslationResult,
 ) {
@@ -413,10 +413,9 @@ fun ResultBlocks(
     }
 }
 
-/** The vocabulary strip: fixed below the scrolling blocks, above the actions. */
 @Composable
 private fun CardStrip(
-    cards: List<VocabularyCard>,
+    cards: List<WordCard>,
     selectedIndices: Set<Int>,
     onToggleSelect: (Int) -> Unit,
 ) {
@@ -429,36 +428,13 @@ private fun CardStrip(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         cards.forEachIndexed { index, card ->
-            val isSelected = selectedIndices.contains(index)
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                border =
-                    BorderStroke(
-                        1.dp,
-                        if (isSelected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.outlineVariant
-                        },
-                    ),
-                color =
-                    if (isSelected) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    },
-                contentColor =
-                    if (isSelected) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                modifier = Modifier.clickable { onToggleSelect(index) },
+            ToggleButton(
+                checked = selectedIndices.contains(index),
+                onCheckedChange = { onToggleSelect(index) },
             ) {
                 Text(
                     text = card.word.lemma,
                     fontSize = 13.sp,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             }
         }
@@ -470,7 +446,7 @@ private fun CardStrip(
  * model translated, so it is also the unit the reader heard as "this sentence".
  */
 private fun occurrencesFor(
-    cards: List<VocabularyCard>,
+    cards: List<WordCard>,
     selectedIndices: Set<Int>,
     ocrResult: OcrResult?,
     translationResult: TranslationResult?,

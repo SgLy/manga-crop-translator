@@ -21,8 +21,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -112,14 +114,14 @@ fun ProgressSheet(phase: AppPhase) {
 @Composable
 private fun ProgressActions(phase: AppPhase) {
     if (phase != AppPhase.OcrError && phase != AppPhase.TranslateError) return
-    Row(
+    HorizontalFloatingToolbar(
+        expanded = true,
         modifier =
             Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp, bottom = 24.dp),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
     ) {
+        Spacer(modifier = Modifier.weight(1f))
         Button(
             onClick = {
                 val nextPhase = if (phase == AppPhase.TranslateError) AppPhase.Parsing else AppPhase.Recognizing
@@ -131,11 +133,11 @@ private fun ProgressActions(phase: AppPhase) {
     }
 }
 
-enum class StepUiStatus { Idle, Waiting, Streaming, Done, Error }
+private enum class StepUiStatus { Idle, Waiting, Streaming, Done, Error }
 
 /** Shows the newest lines of the model's reasoning in a short window that follows the stream. */
 @Composable
-fun ReasoningStrip(reasoning: String) {
+private fun ReasoningStrip(reasoning: String) {
     val lineHeight = 16.sp
     val verticalPadding = 8.dp
     val scrollState = rememberScrollState()
@@ -186,7 +188,7 @@ private fun Modifier.fadeEdges(fadeHeight: Float): Modifier =
         }
 
 @Composable
-fun StepFlow(
+private fun StepFlow(
     ocrStatus: StepUiStatus,
     translateStatus: StepUiStatus,
 ) {
@@ -204,8 +206,9 @@ fun StepFlow(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun StepRow(
+private fun StepRow(
     label: String,
     status: StepUiStatus,
 ) {
@@ -215,9 +218,8 @@ fun StepRow(
         when (status) {
             StepUiStatus.Waiting -> {
                 // Request sent, no SSE chunk yet: something is happening, we just cannot see it.
-                CircularProgressIndicator(
+                LoadingIndicator(
                     modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -266,7 +268,7 @@ fun StepRow(
             }
         }
 
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(5.dp))
 
         Text(
             text = label,
