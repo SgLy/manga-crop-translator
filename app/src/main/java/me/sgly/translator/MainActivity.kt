@@ -133,7 +133,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                var destination by rememberSaveable { mutableStateOf(Destination.Words) }
+                var destination by rememberSaveable { mutableStateOf(Destination.WordList) }
                 val snackbarHostState = remember { SnackbarHostState() }
                 val scope = rememberCoroutineScope()
                 val resources = LocalResources.current
@@ -142,7 +142,7 @@ class MainActivity : ComponentActivity() {
                     contentWindowInsets = WindowInsets(0, 0, 0, 0),
                     snackbarHost = { SnackbarHost(snackbarHostState) },
                     topBar = {
-                        if (destination == Destination.Words) {
+                        if (destination == Destination.WordList) {
                             SearchTopBar(
                                 query = searchQuery,
                                 state = searchBarState,
@@ -158,8 +158,8 @@ class MainActivity : ComponentActivity() {
                         Box {
                             ShortNavigationBar {
                                 ShortNavigationBarItem(
-                                    selected = destination == Destination.Words,
-                                    onClick = { destination = Destination.Words },
+                                    selected = destination == Destination.WordList,
+                                    onClick = { destination = Destination.WordList },
                                     icon = { Icon(painter = painterResource(R.drawable.ic_menu_book), contentDescription = null) },
                                     label = { Text(stringResource(R.string.nav_word_list_title)) },
                                 )
@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity() {
                                 .padding(innerPadding),
                     ) {
                         when (destination) {
-                            Destination.Words -> summaries?.let { HomeScreen(summaries = it) }
+                            Destination.WordList -> summaries?.let { VocabularyListScreen(summaries = it) }
                             Destination.Settings -> SettingsScreen(settingsManager)
                         }
                     }
@@ -220,7 +220,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Destination { Words, Settings }
+private enum class Destination { WordList, Settings }
 
 private val StartButtonSize = 64.dp
 private val StartButtonOverhang = 16.dp
@@ -269,7 +269,7 @@ private fun SearchTopBar(
 }
 
 @Composable
-private fun HomeScreen(summaries: List<VocabularySummary>) {
+private fun VocabularyListScreen(summaries: List<VocabularySummary>) {
     val context = LocalContext.current
 
     Column(
