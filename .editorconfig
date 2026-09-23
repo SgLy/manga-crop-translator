@@ -10,6 +10,7 @@ trim_trailing_whitespace = true
 indent_size = 4
 ktlint_code_style = ktlint_official
 max_line_length = 140
+ktlint_standard_no-unused-imports = enabled
 # Compose composables are PascalCase by convention, so ktlint's function-naming rule must not
 # rename them.
 ktlint_function_naming_ignore_when_annotated_with = Composable
