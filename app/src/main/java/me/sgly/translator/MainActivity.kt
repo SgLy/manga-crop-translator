@@ -27,11 +27,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -56,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -197,7 +193,7 @@ fun HomeScreen(
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
+                            painter = painterResource(R.drawable.ic_settings),
                             contentDescription = stringResource(R.string.cd_settings),
                         )
                     }
@@ -351,7 +347,7 @@ fun SettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            painter = painterResource(R.drawable.ic_arrow_back),
                             contentDescription = stringResource(R.string.cd_back),
                         )
                     }
@@ -553,7 +549,10 @@ fun SettingsField(
                 {
                     IconButton(onClick = { visible = !visible }) {
                         Icon(
-                            imageVector = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            painter =
+                                painterResource(
+                                    if (visible) R.drawable.ic_visibility_off else R.drawable.ic_visibility,
+                                ),
                             contentDescription = null,
                         )
                     }

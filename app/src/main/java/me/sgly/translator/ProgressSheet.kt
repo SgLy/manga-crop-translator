@@ -20,10 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -47,6 +43,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -239,7 +236,7 @@ fun StepRow(
                     label = "blinkAlpha",
                 )
                 Icon(
-                    imageVector = Icons.Outlined.ArrowDownward,
+                    painter = painterResource(R.drawable.ic_arrow_downward),
                     contentDescription = stringResource(R.string.cd_streaming),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = blink),
                     modifier = Modifier.size(16.dp),
@@ -248,7 +245,7 @@ fun StepRow(
 
             StepUiStatus.Done -> {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    painter = painterResource(R.drawable.ic_check),
                     contentDescription = "Done",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.size(16.dp),
@@ -257,7 +254,7 @@ fun StepRow(
 
             StepUiStatus.Error -> {
                 Icon(
-                    imageVector = Icons.Default.Error,
+                    painter = painterResource(R.drawable.ic_error),
                     contentDescription = "Error",
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(16.dp),
