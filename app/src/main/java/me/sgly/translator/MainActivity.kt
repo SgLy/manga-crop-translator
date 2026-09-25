@@ -1,12 +1,8 @@
 package me.sgly.translator
 
 import android.content.Intent
-import android.media.projection.MediaProjectionManager
 import android.os.Bundle
-import android.provider.Settings
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -72,41 +68,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.net.toUri
 import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
 
-class MainActivity : ComponentActivity() {
-    private val notificationPermissionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.RequestPermission(),
-        ) { _ ->
-            checkOverlayAndStart()
-        }
-
-    private val overlayPermissionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult(),
-        ) { _ ->
-            if (Settings.canDrawOverlays(this)) {
-                requestMediaProjection()
-            }
-        }
-
-    private val mediaProjectionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult(),
-        ) { result ->
-            if (result.resultCode == RESULT_OK && result.data != null) {
-                val serviceIntent =
-                    Intent(this, FloatingService::class.java).apply {
-                        putExtra("EXTRA_RESULT_DATA", result.data)
-                        putExtra("EXTRA_RESULT_CODE", result.resultCode)
-                    }
-                startForegroundService(serviceIntent)
-            }
-        }
-
+class MainActivity : CapturePermissionActivity() {
     private lateinit var settingsManager: SettingsManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -172,7 +137,7 @@ class MainActivity : ComponentActivity() {
                             }
                             Box(modifier = Modifier.matchParentSize()) {
                                 StartButton(
-                                    onClick = { checkPermissionsAndStart() },
+                                    onClick = { startCapture() },
                                     modifier = Modifier.align(Alignment.TopCenter),
                                 )
                             }
@@ -194,31 +159,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    private fun checkPermissionsAndStart() {
-        // Install the parsed thinking sequence before resetting the state machine.
-        TranslatorState.setThinkingSequence(settingsManager.thinkingSequence)
-        TranslatorState.reset()
-        notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-    }
-
-    private fun checkOverlayAndStart() {
-        if (!Settings.canDrawOverlays(this)) {
-            val intent =
-                Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    "package:$packageName".toUri(),
-                )
-            overlayPermissionLauncher.launch(intent)
-        } else {
-            requestMediaProjection()
-        }
-    }
-
-    private fun requestMediaProjection() {
-        val mediaProjectionManager = getSystemService(MediaProjectionManager::class.java)
-        mediaProjectionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
     }
 }
 

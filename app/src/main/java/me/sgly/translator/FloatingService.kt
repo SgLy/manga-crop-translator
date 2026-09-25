@@ -218,9 +218,9 @@ class FloatingService :
         val notification = createNotification()
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
 
-        if (intent != null && intent.hasExtra("EXTRA_RESULT_CODE")) {
-            val resultCode = intent.getIntExtra("EXTRA_RESULT_CODE", 0)
-            val resultData = intent.getParcelableExtra<Intent>("EXTRA_RESULT_DATA")
+        if (intent != null && intent.hasExtra(EXTRA_RESULT_CODE)) {
+            val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
+            val resultData = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
             if (resultData != null) {
                 val mediaProjectionManager = getSystemService(MediaProjectionManager::class.java)
                 val projection = mediaProjectionManager.getMediaProjection(resultCode, resultData)
@@ -421,6 +421,11 @@ class FloatingService :
             .setContentText("Ready to translate manga panels.")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .build()
+    }
+
+    companion object {
+        const val EXTRA_RESULT_CODE = "resultCode"
+        const val EXTRA_RESULT_DATA = "resultData"
     }
 }
 

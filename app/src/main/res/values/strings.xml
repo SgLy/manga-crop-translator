@@ -10,6 +10,7 @@
     <string name="cd_elapsed">Elapsed time</string>
     <string name="cd_token_rate">Tokens per second</string>
     <string name="start">Start</string>
+    <string name="tile_label">Translate</string>
     <string name="vocabulary_empty">Nothing at all, a boundless expanse of white</string>
 
     <string name="image_recognition_model">Image Recognition Model</string>

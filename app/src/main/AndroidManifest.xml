@@ -27,11 +27,32 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
         </activity>
 
         <service
             android:name=".FloatingService"
             android:foregroundServiceType="mediaProjection"
+            android:exported="false" />
+
+        <service
+            android:name=".TranslateTileService"
+            android:icon="@drawable/ic_tile"
+            android:label="@string/tile_label"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name=".CaptureActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
             android:exported="false" />
 
         <activity
