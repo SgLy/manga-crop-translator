@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Source: authored for this app. -->
 <!--
   One straight bracket at the top right and one speech-bubble corner at the bottom left.
   The bubble corner keeps the frame's two edges straight for a run (12dp each), then bends into a
