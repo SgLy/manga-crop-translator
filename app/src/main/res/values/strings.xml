@@ -2,6 +2,13 @@
     <string name="app_name">Crop Translator</string>
     <string name="cd_back">Back</string>
     <string name="cd_streaming">Receiving response</string>
+    <string name="cd_token_input">Input tokens</string>
+    <string name="cd_token_output">Output tokens</string>
+    <string name="cd_token_cached">Cached tokens</string>
+    <string name="cd_token_reasoning">Reasoning tokens</string>
+    <string name="cd_ttft">Time to first token</string>
+    <string name="cd_elapsed">Elapsed time</string>
+    <string name="cd_token_rate">Tokens per second</string>
     <string name="start">Start</string>
     <string name="vocabulary_empty">Nothing at all, a boundless expanse of white</string>
 
@@ -38,6 +45,7 @@
     <string name="delete_word_title">Delete “%1$s”?</string>
     <string name="no_last_result">Nothing to show yet — translate something first.</string>
     <string name="show_reasoning">Show reasoning</string>
+    <string name="show_token_usage">Show token usage</string>
     <string name="search_hint">Search</string>
     <string name="search_done">Searched %1$s</string>
     <string name="nav_word_list_title">Word book</string>

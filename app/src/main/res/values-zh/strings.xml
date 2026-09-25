@@ -2,6 +2,13 @@
     <string name="app_name">漫画翻译</string>
     <string name="cd_back">返回</string>
     <string name="cd_streaming">正在接收响应</string>
+    <string name="cd_token_input">输入 token 数</string>
+    <string name="cd_token_output">输出 token 数</string>
+    <string name="cd_token_cached">缓存 token 数</string>
+    <string name="cd_token_reasoning">思考 token 数</string>
+    <string name="cd_ttft">首字延迟</string>
+    <string name="cd_elapsed">总耗时</string>
+    <string name="cd_token_rate">每秒 token 数</string>
     <string name="start">开始</string>
     <string name="vocabulary_empty">什么都没有，白茫茫一片</string>
 
@@ -37,6 +44,7 @@
     <string name="action_keep">留下</string>
     <string name="no_last_result">没有可供显示的翻译结果，先翻译一次吧</string>
     <string name="show_reasoning">展示思考过程</string>
+    <string name="show_token_usage">显示推理用量</string>
     <string name="search_hint">搜索</string>
     <string name="search_done">搜索了 %1$s</string>
     <string name="nav_word_list_title">单词本</string>

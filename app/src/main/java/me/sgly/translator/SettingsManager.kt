@@ -48,6 +48,10 @@ class SettingsManager(
         get() = prefs.getBoolean("showReasoning", false)
         set(value) = prefs.edit { putBoolean("showReasoning", value) }
 
+    var showTokenUsage: Boolean
+        get() = prefs.getBoolean("showTokenUsage", false)
+        set(value) = prefs.edit { putBoolean("showTokenUsage", value) }
+
     /** The thinking sequence, first level tried first; each "think harder" steps up one. */
     var thinkingSequence: List<ThinkingLevel>
         get() = parseThinkingSequence(prefs.getString("thinkingLevels", null))

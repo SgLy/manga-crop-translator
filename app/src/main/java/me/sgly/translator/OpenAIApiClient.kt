@@ -1,6 +1,7 @@
 package me.sgly.translator
 
 import android.graphics.Bitmap
+import android.os.SystemClock
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -44,6 +45,7 @@ class OpenAIApiClient(
         thinkingEffort: String,
         onOutputDelta: suspend (String) -> Unit = {},
         onReasoningDelta: suspend (String) -> Unit = {},
+        onStats: (RequestStats) -> Unit = {},
     ): OcrResult =
         withContext(Dispatchers.IO) {
             val tag = "MangaVisualModel"
@@ -100,6 +102,7 @@ class OpenAIApiClient(
                     tool = tool,
                     onOutputDelta = onOutputDelta,
                     onReasoningDelta = onReasoningDelta,
+                    onStats = onStats,
                 )
             decodeToolResult(tag, finalJson, OcrResult.serializer())
         }
@@ -109,6 +112,7 @@ class OpenAIApiClient(
         thinkingEffort: String,
         onOutputDelta: suspend (String) -> Unit = {},
         onReasoningDelta: suspend (String) -> Unit = {},
+        onStats: (RequestStats) -> Unit = {},
     ): TranslationResult =
         withContext(Dispatchers.IO) {
             val tag = "MangaTranslateModel"
@@ -159,6 +163,7 @@ class OpenAIApiClient(
                     tool = tool,
                     onOutputDelta = onOutputDelta,
                     onReasoningDelta = onReasoningDelta,
+                    onStats = onStats,
                 )
             decodeToolResult(tag, finalJson, TranslationResult.serializer())
         }
@@ -191,6 +196,7 @@ class OpenAIApiClient(
         tool: OpenAITool,
         onOutputDelta: suspend (String) -> Unit,
         onReasoningDelta: suspend (String) -> Unit,
+        onStats: (RequestStats) -> Unit,
     ): String =
         withContext(Dispatchers.IO) {
             val (thinking, reasoningEffort) = thinkingParams(thinkingEffort)
@@ -221,6 +227,14 @@ class OpenAIApiClient(
                     .post(requestJson.toRequestBody(jsonMediaType))
                     .build()
 
+            val startedAt = SystemClock.elapsedRealtime()
+            var ttftMillis = 0L
+            var reportedUsage = TokenUsage()
+
+            fun markFirstToken() {
+                if (ttftMillis == 0L) ttftMillis = SystemClock.elapsedRealtime() - startedAt
+            }
+
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body.string()
@@ -247,12 +261,14 @@ class OpenAIApiClient(
                             if (delta != null) {
                                 val reasoning = delta.optString("reasoning_content", "")
                                 if (reasoning.isNotEmpty()) {
+                                    markFirstToken()
                                     onReasoningDelta(reasoning)
                                     reasoningBuilder.append(reasoning)
                                 }
 
                                 val content = delta.optString("content", "")
                                 if (content.isNotEmpty()) {
+                                    markFirstToken()
                                     onOutputDelta(content)
                                     contentBuilder.append(content)
                                 }
@@ -266,6 +282,7 @@ class OpenAIApiClient(
                                         functionArguments.append(arguments)
                                         // Tool arguments stream in as their own chunks; count them too so
                                         // the counter keeps moving while the model writes the JSON.
+                                        markFirstToken()
                                         onOutputDelta(arguments)
                                     }
                                 }
@@ -277,6 +294,7 @@ class OpenAIApiClient(
                         val usage = jsonChunk.optJSONObject("usage")
                         if (usage != null) {
                             AppLog.i("$tag/OpenAIUsage", usage.toString())
+                            reportedUsage = parseUsage(usage)
                         }
                     } catch (e: Exception) {
                         // Ignore JSON parse errors for incomplete chunks
@@ -290,9 +308,25 @@ class OpenAIApiClient(
                 val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
                 AppLog.d("$tag/ResponseBody") { "\u2190 Assembled final JSON:\n$finalJson" }
                 if (finalJson.isEmpty()) throw Exception("No valid tool calls or content found in $tag response")
+                onStats(
+                    RequestStats(
+                        usage = reportedUsage,
+                        ttfts = listOf(ttftMillis),
+                        elapsedMillis = SystemClock.elapsedRealtime() - startedAt,
+                    ),
+                )
                 finalJson
             }
         }
+
+    private fun parseUsage(usage: JSONObject): TokenUsage =
+        TokenUsage(
+            input = usage.optInt("prompt_tokens"),
+            output = usage.optInt("completion_tokens"),
+            cached = usage.optJSONObject("prompt_tokens_details")?.optInt("cached_tokens") ?: 0,
+            reasoning = usage.optJSONObject("completion_tokens_details")?.optInt("reasoning_tokens") ?: 0,
+            total = usage.optInt("total_tokens"),
+        )
 
     private fun <T> decodeToolResult(
         tag: String,

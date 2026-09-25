@@ -167,6 +167,7 @@ class FloatingService :
                                     TranslatorState.currentThinkingEffort(),
                                     onOutputDelta = { TranslatorState.onOutputDelta(it) },
                                     onReasoningDelta = { TranslatorState.onReasoningDelta(it) },
+                                    onStats = { TranslatorState.onStats(it) },
                                 )
                             if (result.blocks.isEmpty()) {
                                 TranslatorState.setErrorText(
@@ -193,6 +194,7 @@ class FloatingService :
                                     TranslatorState.currentThinkingEffort(),
                                     onOutputDelta = { TranslatorState.onOutputDelta(it) },
                                     onReasoningDelta = { TranslatorState.onReasoningDelta(it) },
+                                    onStats = { TranslatorState.onStats(it) },
                                 )
                             TranslatorState.setTranslationResult(result)
                             TranslatorState.transition(AppPhase.Done, TransitionReason.TranslateSuccess)

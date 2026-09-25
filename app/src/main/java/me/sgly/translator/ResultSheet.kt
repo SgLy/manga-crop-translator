@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.HorizontalFloatingToolbar
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PlainTooltip
@@ -47,16 +49,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 /** The finished translation: the annotated blocks and the vocabulary strip, with their actions. */
 @Composable
 fun ResultSheet(phase: AppPhase) {
     val ocrResult by TranslatorState.ocrResult.collectAsState()
     val translationResult by TranslatorState.translationResult.collectAsState()
+    val runStats by TranslatorState.runStats.collectAsState()
 
     // Every card remembers the block it came from, which is how saving recovers its sentence.
     val cards =
@@ -67,6 +73,8 @@ fun ResultSheet(phase: AppPhase) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val resources = LocalResources.current
+    val showTokenUsage = remember { SettingsManager(context).showTokenUsage }
+    val stats = if (showTokenUsage) runStats else null
 
     Column(
         modifier =
@@ -90,18 +98,28 @@ fun ResultSheet(phase: AppPhase) {
             }
         }
 
-        if (cards.isNotEmpty()) {
-            CardStrip(
-                cards = cards,
-                selectedIndices = selectedIndices,
-                onToggleSelect = { index ->
-                    if (selectedIndices.contains(index)) {
-                        selectedIndices.remove(index)
-                    } else {
-                        selectedIndices.add(index)
-                    }
-                },
-            )
+        if (stats != null || cards.isNotEmpty()) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 48.dp),
+            ) {
+                if (stats != null) {
+                    UsageStats(stats)
+                }
+                if (cards.isNotEmpty()) {
+                    CardStrip(
+                        cards = cards,
+                        selectedIndices = selectedIndices,
+                        onToggleSelect = { index ->
+                            if (selectedIndices.contains(index)) {
+                                selectedIndices.remove(index)
+                            } else {
+                                selectedIndices.add(index)
+                            }
+                        },
+                    )
+                }
+            }
         }
 
         ResultActions(
@@ -130,6 +148,74 @@ fun ResultSheet(phase: AppPhase) {
         )
     }
 }
+
+@Composable
+private fun UsageStats(stats: RequestStats) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TokenCount(R.drawable.ic_arrow_upward, R.string.cd_token_input, stats.usage.freshInput.toString())
+                TokenValue("+")
+                TokenCount(R.drawable.ic_cached, R.string.cd_token_cached, stats.usage.cached.toString())
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TokenCount(R.drawable.ic_arrow_downward, R.string.cd_token_output, stats.usage.freshOutput.toString())
+                TokenValue("+")
+                TokenCount(R.drawable.ic_psychology, R.string.cd_token_reasoning, stats.usage.reasoning.toString())
+            }
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TokenCount(R.drawable.ic_bolt, R.string.cd_ttft, stats.ttfts.joinToString(" / ") { formatSeconds(it) })
+            TokenCount(R.drawable.ic_schedule, R.string.cd_elapsed, formatSeconds(stats.elapsedMillis, 1))
+            TokenCount(R.drawable.ic_speed, R.string.cd_token_rate, "${stats.outputPerSecond} t/s")
+        }
+    }
+}
+
+@Composable
+private fun TokenCount(
+    icon: Int,
+    description: Int,
+    value: String,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = stringResource(description),
+            tint = MaterialTheme.colorScheme.outlineVariant,
+            modifier = Modifier.size(12.dp),
+        )
+        TokenValue(value)
+    }
+}
+
+@Composable
+private fun TokenValue(value: String) {
+    Text(
+        text = value,
+        fontFamily = FontFamily.Monospace,
+        style = MaterialTheme.typography.labelSmall,
+        fontSize = 10.sp,
+        color = MaterialTheme.colorScheme.outlineVariant,
+    )
+}
+
+private fun formatSeconds(
+    millis: Long,
+    decimals: Int = 2,
+): String = String.format(Locale.US, "%.${decimals}fs", millis / 1000.0)
 
 @Composable
 private fun ResultActions(
@@ -423,7 +509,7 @@ private fun CardStrip(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(top = 48.dp, bottom = 12.dp),
+                .padding(bottom = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {

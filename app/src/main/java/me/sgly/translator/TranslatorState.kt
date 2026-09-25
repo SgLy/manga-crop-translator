@@ -50,6 +50,7 @@ data class Transition(
 data class LastTranslation(
     val ocr: OcrResult,
     val translation: TranslationResult,
+    val runStats: RequestStats?,
 )
 
 /** Thinking strength a model can be asked for, weakest first. */
@@ -86,6 +87,9 @@ object TranslatorState {
 
     private val _reasoning = MutableStateFlow("")
     val reasoning: StateFlow<String> = _reasoning.asStateFlow()
+
+    private val _runStats = MutableStateFlow<RequestStats?>(null)
+    val runStats: StateFlow<RequestStats?> = _runStats.asStateFlow()
 
     private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
     val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
@@ -162,10 +166,19 @@ object TranslatorState {
         _firstTokenReceived.value = true
     }
 
+    /** Called once per request with what that request cost. */
+    fun onStats(stats: RequestStats) {
+        _runStats.value = _runStats.value?.plus(stats) ?: stats
+    }
+
     /** Back to "nothing received yet" — called whenever a new streaming phase starts. */
     private fun resetStreamProgress() {
         _firstTokenReceived.value = false
         _reasoning.value = ""
+    }
+
+    private fun resetRunStats() {
+        _runStats.value = null
     }
 
     /**
@@ -182,6 +195,7 @@ object TranslatorState {
             TransitionReason.FabClicked -> {
                 // A new capture session starts: reset to the base thinking level
                 _thinkingLevelIndex.value = 0
+                resetRunStats()
             }
 
             TransitionReason.FabLongPressed -> {
@@ -189,6 +203,7 @@ object TranslatorState {
                 lastTranslation?.let {
                     _ocrResult.value = it.ocr
                     _translationResult.value = it.translation
+                    _runStats.value = it.runStats
                 }
                 _errorText.value = ""
             }
@@ -206,7 +221,7 @@ object TranslatorState {
                 val ocr = _ocrResult.value
                 val translation = _translationResult.value
                 if (ocr != null && translation != null) {
-                    lastTranslation = LastTranslation(ocr, translation)
+                    lastTranslation = LastTranslation(ocr, translation, _runStats.value)
                 }
             }
 
@@ -215,12 +230,14 @@ object TranslatorState {
                 _ocrResult.value = null
                 _translationResult.value = null
                 _errorText.value = ""
+                resetRunStats()
                 escalateThinking()
             }
 
             TransitionReason.Retry -> {
                 _errorText.value = ""
                 _translationResult.value = null
+                resetRunStats()
                 // OcrError retry re-runs OCR: also clear ocrResult
                 if (from == AppPhase.OcrError) _ocrResult.value = null
                 // TranslateError retry preserves ocrResult (only re-runs TranslateModel)
@@ -234,6 +251,7 @@ object TranslatorState {
                 _errorText.value = ""
                 _thinkingLevelIndex.value = 0
                 lastTranslation = null
+                resetRunStats()
             }
 
             TransitionReason.Dismiss,
@@ -246,6 +264,7 @@ object TranslatorState {
                 _translationResult.value = null
                 _errorText.value = ""
                 _thinkingLevelIndex.value = 0
+                resetRunStats()
             }
 
             else -> {}
@@ -276,6 +295,7 @@ object TranslatorState {
         _translationResult.value = null
         _errorText.value = ""
         _thinkingLevelIndex.value = 0
+        resetRunStats()
         _capturedContentVisible.value = false
         resetStreamProgress()
         _phase.value = AppPhase.Idle

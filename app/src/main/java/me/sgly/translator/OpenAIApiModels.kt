@@ -34,6 +34,45 @@ data class OpenAIStreamOptions(
     @SerialName("include_usage") val includeUsage: Boolean,
 )
 
+data class TokenUsage(
+    val input: Int = 0,
+    val output: Int = 0,
+    val cached: Int = 0,
+    val reasoning: Int = 0,
+    val total: Int = 0,
+) {
+    val freshInput: Int get() = input - cached
+
+    val freshOutput: Int get() = output - reasoning
+
+    operator fun plus(other: TokenUsage): TokenUsage =
+        TokenUsage(
+            input = input + other.input,
+            output = output + other.output,
+            cached = cached + other.cached,
+            reasoning = reasoning + other.reasoning,
+            total = total + other.total,
+        )
+}
+
+/** [ttfts] holds one entry per request, [elapsedMillis] their total duration. */
+data class RequestStats(
+    val usage: TokenUsage,
+    val ttfts: List<Long>,
+    val elapsedMillis: Long,
+) {
+    val generationMillis: Long get() = (elapsedMillis - ttfts.sum()).coerceAtLeast(1)
+
+    val outputPerSecond: Int get() = (usage.output * 1000L / generationMillis).toInt()
+
+    operator fun plus(other: RequestStats): RequestStats =
+        RequestStats(
+            usage = usage + other.usage,
+            ttfts = ttfts + other.ttfts,
+            elapsedMillis = elapsedMillis + other.elapsedMillis,
+        )
+}
+
 @Serializable
 data class OpenAITool(
     val type: String,

@@ -384,6 +384,7 @@ private fun SettingsScreen(settingsManager: SettingsManager) {
     var thinkingSequence by remember { mutableStateOf(settingsManager.thinkingSequence) }
     var forwardLogsToLogcat by remember { mutableStateOf(settingsManager.forwardLogsToLogcat) }
     var showReasoning by remember { mutableStateOf(settingsManager.showReasoning) }
+    var showTokenUsage by remember { mutableStateOf(settingsManager.showTokenUsage) }
 
     Column(
         modifier =
@@ -498,6 +499,17 @@ private fun SettingsScreen(settingsManager: SettingsManager) {
             onCheckedChange = {
                 showReasoning = it
                 settingsManager.showReasoning = it
+            },
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SwitchRow(
+            label = stringResource(R.string.show_token_usage),
+            checked = showTokenUsage,
+            onCheckedChange = {
+                showTokenUsage = it
+                settingsManager.showTokenUsage = it
             },
         )
 
