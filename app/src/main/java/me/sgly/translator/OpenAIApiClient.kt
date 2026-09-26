@@ -3,7 +3,9 @@ package me.sgly.translator
 import android.graphics.Bitmap
 import android.os.SystemClock
 import android.util.Base64
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.encodeToString
@@ -25,6 +27,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.coroutineContext
 
 class OpenAIApiClient(
     private val settingsManager: SettingsManager,
@@ -235,7 +238,12 @@ class OpenAIApiClient(
                 if (ttftMillis == 0L) ttftMillis = SystemClock.elapsedRealtime() - startedAt
             }
 
-            client.newCall(request).execute().use { response ->
+            val call = client.newCall(request)
+            // The blocking read below ignores coroutine cancellation, so abort the call when the job dies.
+            coroutineContext.job.invokeOnCompletion { cause ->
+                if (cause is CancellationException) call.cancel()
+            }
+            call.execute().use { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body.string()
                     AppLog.e("$tag/RequestError", "API Error Response: ${response.code} - $errorBody")

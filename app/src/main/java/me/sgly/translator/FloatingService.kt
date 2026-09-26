@@ -43,7 +43,9 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -138,6 +140,8 @@ class FloatingService :
                                     onReasoningDelta = { TranslatorState.onReasoningDelta(it) },
                                     onStats = { TranslatorState.onStats(it) },
                                 )
+                            // The request may have finished after the run was cancelled; a dead run has no state to write.
+                            currentCoroutineContext().ensureActive()
                             if (result.blocks.isEmpty()) {
                                 TranslatorState.setErrorText(
                                     "OCR returned empty text. Please check if your VisualModel endpoint and model support image inputs.",
@@ -148,6 +152,8 @@ class FloatingService :
                                 TranslatorState.transition(AppPhase.Parsing, TransitionReason.OcrSuccess)
                             }
                         } catch (e: Exception) {
+                            // A run the user dismissed is not a failure; leave the state alone.
+                            currentCoroutineContext().ensureActive()
                             TranslatorState.setErrorText("Error: ${e.message}")
                             TranslatorState.transition(AppPhase.OcrError, TransitionReason.OcrFailed)
                         }
@@ -165,9 +171,12 @@ class FloatingService :
                                     onReasoningDelta = { TranslatorState.onReasoningDelta(it) },
                                     onStats = { TranslatorState.onStats(it) },
                                 )
+                            currentCoroutineContext().ensureActive()
                             TranslatorState.setTranslationResult(result)
                             TranslatorState.transition(AppPhase.Done, TransitionReason.TranslateSuccess)
                         } catch (e: Exception) {
+                            // A run the user dismissed is not a failure; leave the state alone.
+                            currentCoroutineContext().ensureActive()
                             TranslatorState.setErrorText("Error: ${e.message}")
                             TranslatorState.transition(AppPhase.TranslateError, TransitionReason.TranslateFailed)
                         }
