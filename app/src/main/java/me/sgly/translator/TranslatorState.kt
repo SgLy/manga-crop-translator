@@ -19,6 +19,14 @@ enum class AppPhase {
     TranslateError, // Result sheet open, TranslateModel failed (OCR result preserved)
     ViewingLast, // Result sheet open, showing the previous result
     ShowingLogs, // Logs screen open, the result sheet is hidden
+    ;
+
+    val showsSheet: Boolean
+        get() =
+            when (this) {
+                Recognizing, Parsing, Done, OcrError, TranslateError, ViewingLast -> true
+                Idle, Capturing, Cropping, ShowingLogs -> false
+            }
 }
 
 enum class TransitionReason {

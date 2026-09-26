@@ -40,7 +40,7 @@ class SheetActivity : ComponentActivity() {
                 val phase by TranslatorState.phase.collectAsState()
 
                 LaunchedEffect(phase) {
-                    if (phase == AppPhase.Idle || phase == AppPhase.Capturing || phase == AppPhase.Cropping) {
+                    if (!phase.showsSheet && phase != AppPhase.ShowingLogs) {
                         finish()
                     }
                 }
@@ -49,11 +49,7 @@ class SheetActivity : ComponentActivity() {
                     TranslatorState.closeLogsIfOpen()
                 }
 
-                val isSheetVisible =
-                    phase != AppPhase.Idle &&
-                        phase != AppPhase.Capturing &&
-                        phase != AppPhase.Cropping &&
-                        phase != AppPhase.ShowingLogs
+                val isSheetVisible = phase.showsSheet
                 if (isSheetVisible) {
                     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                     ModalBottomSheet(

@@ -60,17 +60,6 @@ class FloatingService :
     private lateinit var openAIApiClient: OpenAIApiClient
     private lateinit var settingsManager: SettingsManager
 
-    /** Phases in which the result sheet is the intended on-screen UI. */
-    private val resultPhases =
-        setOf(
-            AppPhase.Recognizing,
-            AppPhase.Parsing,
-            AppPhase.Done,
-            AppPhase.OcrError,
-            AppPhase.TranslateError,
-            AppPhase.ViewingLast,
-        )
-
     private val serviceScope = CoroutineScope(Dispatchers.Main)
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
@@ -91,37 +80,18 @@ class FloatingService :
             TranslatorState.setCapturedContentVisible(visible)
             // The captured content is back on screen, so any logs screen covering it is gone.
             if (visible && !wasVisible) TranslatorState.closeLogsIfOpen()
-            // Coming back to the shared app: restore the UI the current phase implies.
-            if (visible && !wasVisible && TranslatorState.phase.value in resultPhases) {
-                serviceScope.launch {
-                    // Delay past the system's transition to the shared app: launching during it makes
-                    // MIUI abort the move-to-front ("avoidMoveToFront by anim effect").
-                    delay(500)
-                    if (TranslatorState.capturedContentVisible.value &&
-                        TranslatorState.phase.value in resultPhases &&
-                        ::floatingView.isInitialized
-                    ) {
-                        // MIUI only treats the launch as a *visible* launch when our app already has
-                        // a visible overlay window. Flash the FAB window as a "spark" so the restored
-                        // result sheet actually reaches the foreground (and hide it right after).
-                        floatingView.visibility = View.VISIBLE
-                        delay(120)
-                        showSheet(clearTask = true)
-                        delay(400)
-                        updateFabVisibility()
-                    }
-                }
-            }
         }
         overlayScreenManager = OverlayScreenManager(this)
         settingsManager = SettingsManager(this)
         AppLog.forwardToLogcat = settingsManager.forwardLogsToLogcat
         openAIApiClient = OpenAIApiClient(settingsManager)
 
-        // FAB visibility follows (phase, capturedContentVisible)
         serviceScope.launch {
             combine(TranslatorState.phase, TranslatorState.capturedContentVisible) { phase, visible -> phase to visible }
-                .collect { updateFabVisibility() }
+                .collect { (phase, visible) ->
+                    updateFabVisibility()
+                    updateSheetVisibility(phase, visible)
+                }
         }
 
         // Orchestration: drive the pipeline based on current phase
@@ -144,7 +114,6 @@ class FloatingService :
                         if (cropped != null) {
                             TranslatorState.croppedBitmap = cropped
                             AppLog.i("TranslatorState", "croppedBitmap: ${cropped.width}×${cropped.height}")
-                            showSheet()
                             overlayScreenManager.hideOverlay()
                             TranslatorState.transition(AppPhase.Recognizing, TransitionReason.CropSelected)
                         } else {
@@ -371,7 +340,44 @@ class FloatingService :
             return
         }
         TranslatorState.transition(AppPhase.ViewingLast, TransitionReason.FabLongPressed)
-        showSheet(clearTask = true)
+    }
+
+    private var sheetShown = false
+    private var lastCapturedContentVisible = false
+
+    /**
+     * The sheet is on screen exactly while [AppPhase.showsSheet] holds, the same way the FAB follows
+     * the phase. The launch needs a visible window of ours, so the FAB window is flashed first.
+     */
+    private fun updateSheetVisibility(
+        phase: AppPhase,
+        capturedContentVisible: Boolean,
+    ) {
+        val returning = capturedContentVisible && !lastCapturedContentVisible
+        lastCapturedContentVisible = capturedContentVisible
+        if (!phase.showsSheet) {
+            sheetShown = false
+            return
+        }
+        if (sheetShown || !::floatingView.isInitialized) return
+        sheetShown = true
+        serviceScope.launch {
+            // Delay past the system's transition to the shared app: launching during it makes
+            // MIUI abort the move-to-front ("avoidMoveToFront by anim effect").
+            if (returning) delay(500)
+            val abandoned =
+                !TranslatorState.phase.value.showsSheet ||
+                    (returning && !TranslatorState.capturedContentVisible.value)
+            if (abandoned) {
+                sheetShown = false
+                return@launch
+            }
+            floatingView.visibility = View.VISIBLE
+            delay(120)
+            showSheet(clearTask = returning)
+            delay(400)
+            updateFabVisibility()
+        }
     }
 
     /**
