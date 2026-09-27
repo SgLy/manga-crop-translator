@@ -86,6 +86,10 @@ object TranslatorState {
     private val _capturedContentVisible = MutableStateFlow(false)
     val capturedContentVisible: StateFlow<Boolean> = _capturedContentVisible.asStateFlow()
 
+    /** Whether a result sheet window exists. Owned by SheetActivity, read by the sheet driver. */
+    private val _sheetShown = MutableStateFlow(false)
+    val sheetShown: StateFlow<Boolean> = _sheetShown.asStateFlow()
+
     /**
      * Whether the in-flight streaming response has already delivered its first token.
      * False while we are still waiting for the first SSE chunk, true from that first delta on.
@@ -158,6 +162,10 @@ object TranslatorState {
 
     fun setCapturedContentVisible(visible: Boolean) {
         _capturedContentVisible.value = visible
+    }
+
+    fun setSheetShown(shown: Boolean) {
+        _sheetShown.value = shown
     }
 
     /**

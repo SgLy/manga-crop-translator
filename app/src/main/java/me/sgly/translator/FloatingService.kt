@@ -88,8 +88,14 @@ class FloatingService :
         AppLog.forwardToLogcat = settingsManager.forwardLogsToLogcat
         openAIApiClient = OpenAIApiClient(settingsManager)
 
+        // The FAB and the result sheet are recomputed whenever the phase, the captured content's
+        // visibility or the sheet window changes.
         serviceScope.launch {
-            combine(TranslatorState.phase, TranslatorState.capturedContentVisible) { phase, visible -> phase to visible }
+            combine(
+                TranslatorState.phase,
+                TranslatorState.capturedContentVisible,
+                TranslatorState.sheetShown,
+            ) { phase, visible, _ -> phase to visible }
                 .collect { (phase, visible) ->
                     updateFabVisibility()
                     updateSheetVisibility(phase, visible)
@@ -351,12 +357,13 @@ class FloatingService :
         TranslatorState.transition(AppPhase.ViewingLast, TransitionReason.FabLongPressed)
     }
 
-    private var sheetShown = false
+    private var lastPhase: AppPhase? = null
     private var lastCapturedContentVisible = false
 
     /**
-     * The sheet is on screen exactly while [AppPhase.showsSheet] holds, the same way the FAB follows
-     * the phase. The launch needs a visible window of ours, so the FAB window is flashed first.
+     * The sheet is on screen exactly while [AppPhase.showsSheet] holds and its window is gone, the
+     * same way the FAB follows the phase. The launch needs a visible window of ours, so the FAB
+     * window is flashed first.
      */
     private fun updateSheetVisibility(
         phase: AppPhase,
@@ -364,23 +371,20 @@ class FloatingService :
     ) {
         val returning = capturedContentVisible && !lastCapturedContentVisible
         lastCapturedContentVisible = capturedContentVisible
-        if (!phase.showsSheet) {
-            sheetShown = false
-            return
-        }
-        if (sheetShown || !::floatingView.isInitialized) return
-        sheetShown = true
+        val enteredSheetPhase = phase != lastPhase
+        lastPhase = phase
+        if (!phase.showsSheet || TranslatorState.sheetShown.value) return
+        if (!enteredSheetPhase && !capturedContentVisible) return
+        if (!::floatingView.isInitialized) return
         serviceScope.launch {
             // Delay past the system's transition to the shared app: launching during it makes
             // MIUI abort the move-to-front ("avoidMoveToFront by anim effect").
             if (returning) delay(500)
             val abandoned =
                 !TranslatorState.phase.value.showsSheet ||
+                    TranslatorState.sheetShown.value ||
                     (returning && !TranslatorState.capturedContentVisible.value)
-            if (abandoned) {
-                sheetShown = false
-                return@launch
-            }
+            if (abandoned) return@launch
             floatingView.visibility = View.VISIBLE
             delay(120)
             showSheet(clearTask = returning)

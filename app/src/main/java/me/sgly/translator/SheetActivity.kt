@@ -78,9 +78,19 @@ class SheetActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        TranslatorState.setSheetShown(true)
+    }
+
     override fun onResume() {
         super.onResume()
         resumeCount++
+    }
+
+    override fun onDestroy() {
+        TranslatorState.setSheetShown(false)
+        super.onDestroy()
     }
 
     override fun finish() {
