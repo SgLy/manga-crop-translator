@@ -49,5 +49,7 @@
     <string name="search_hint">搜索</string>
     <string name="search_done">搜索了 %1$s</string>
     <string name="nav_word_list_title">单词本</string>
+    <string name="nav_practice_title">练习</string>
+    <string name="nav_stats_title">统计</string>
     <string name="nav_settings_title">设置</string>
 </resources>

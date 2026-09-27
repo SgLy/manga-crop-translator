@@ -127,7 +127,19 @@ class MainActivity : CapturePermissionActivity() {
                                     icon = { Icon(painter = painterResource(R.drawable.ic_menu_book), contentDescription = null) },
                                     label = { Text(stringResource(R.string.nav_word_list_title)) },
                                 )
+                                ShortNavigationBarItem(
+                                    selected = destination == Destination.Practice,
+                                    onClick = { destination = Destination.Practice },
+                                    icon = { Icon(painter = painterResource(R.drawable.ic_quiz), contentDescription = null) },
+                                    label = { Text(stringResource(R.string.nav_practice_title)) },
+                                )
                                 Spacer(modifier = Modifier)
+                                ShortNavigationBarItem(
+                                    selected = destination == Destination.Stats,
+                                    onClick = { destination = Destination.Stats },
+                                    icon = { Icon(painter = painterResource(R.drawable.ic_bar_chart), contentDescription = null) },
+                                    label = { Text(stringResource(R.string.nav_stats_title)) },
+                                )
                                 ShortNavigationBarItem(
                                     selected = destination == Destination.Settings,
                                     onClick = { destination = Destination.Settings },
@@ -153,6 +165,8 @@ class MainActivity : CapturePermissionActivity() {
                     ) {
                         when (destination) {
                             Destination.WordList -> summaries?.let { VocabularyListScreen(summaries = it) }
+                            Destination.Practice -> Box(modifier = Modifier.fillMaxSize())
+                            Destination.Stats -> Box(modifier = Modifier.fillMaxSize())
                             Destination.Settings -> SettingsScreen(settingsManager)
                         }
                     }
@@ -162,7 +176,7 @@ class MainActivity : CapturePermissionActivity() {
     }
 }
 
-private enum class Destination { WordList, Settings }
+private enum class Destination { WordList, Practice, Stats, Settings }
 
 private val StartButtonSize = 64.dp
 private val StartButtonOverhang = 16.dp
