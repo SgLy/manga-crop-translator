@@ -133,6 +133,20 @@ object TranslatorState {
     var lastTranslation: LastTranslation? = null
         private set
 
+    /** Why the current round of inference started, or null while none is in flight. */
+    var runReason: TransitionReason? = null
+        private set
+
+    /** Stats row of the translation on screen, so 「记一下」 can record what it saved. */
+    var translationId: Long? = null
+
+    var roundVisionRequests = 0
+        private set
+
+    /** Translation requests the round in flight has made. */
+    var roundParseRequests = 0
+        private set
+
     /** The result phase a logs screen was opened from, so closing it returns there. */
     var phaseBeforeLogs: AppPhase? = null
         private set
@@ -187,6 +201,14 @@ object TranslatorState {
         _runStats.value = _runStats.value?.plus(stats) ?: stats
     }
 
+    fun onVisionRequest() {
+        roundVisionRequests++
+    }
+
+    fun onParseRequest() {
+        roundParseRequests++
+    }
+
     /** Back to "nothing received yet" — called whenever a new streaming phase starts. */
     private fun resetStreamProgress() {
         _firstTokenReceived.value = false
@@ -195,6 +217,8 @@ object TranslatorState {
 
     private fun resetRunStats() {
         _runStats.value = null
+        roundVisionRequests = 0
+        roundParseRequests = 0
     }
 
     /**
@@ -212,6 +236,7 @@ object TranslatorState {
                 // A new capture session starts: reset to the base thinking level
                 _thinkingLevelIndex.value = 0
                 resetRunStats()
+                runReason = reason
             }
 
             TransitionReason.FabLongPressed -> {
@@ -248,12 +273,14 @@ object TranslatorState {
                 _errorText.value = ""
                 resetRunStats()
                 escalateThinking()
+                runReason = reason
             }
 
             TransitionReason.Retry -> {
                 _errorText.value = ""
                 _translationResult.value = null
                 resetRunStats()
+                runReason = reason
                 // OcrError retry re-runs OCR: also clear ocrResult
                 if (from == AppPhase.OcrError) _ocrResult.value = null
                 // TranslateError retry preserves ocrResult (only re-runs TranslateModel)
@@ -268,6 +295,8 @@ object TranslatorState {
                 _thinkingLevelIndex.value = 0
                 lastTranslation = null
                 resetRunStats()
+                runReason = null
+                translationId = null
             }
 
             TransitionReason.Dismiss,
@@ -307,6 +336,8 @@ object TranslatorState {
         capturedBitmap = null
         croppedBitmap = null
         lastTranslation = null
+        runReason = null
+        translationId = null
         _ocrResult.value = null
         _translationResult.value = null
         _errorText.value = ""

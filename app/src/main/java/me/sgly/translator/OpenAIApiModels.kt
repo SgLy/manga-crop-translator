@@ -57,6 +57,7 @@ data class TokenUsage(
 
 /** [ttfts] holds one entry per request, [elapsedMillis] their total duration. */
 data class RequestStats(
+    val model: String,
     val usage: TokenUsage,
     val ttfts: List<Long>,
     val elapsedMillis: Long,
@@ -67,6 +68,7 @@ data class RequestStats(
 
     operator fun plus(other: RequestStats): RequestStats =
         RequestStats(
+            model = other.model,
             usage = usage + other.usage,
             ttfts = ttfts + other.ttfts,
             elapsedMillis = elapsedMillis + other.elapsedMillis,

@@ -318,6 +318,7 @@ class OpenAIApiClient(
                 if (finalJson.isEmpty()) throw Exception("No valid tool calls or content found in $tag response")
                 onStats(
                     RequestStats(
+                        model = connection.model,
                         usage = reportedUsage,
                         ttfts = listOf(ttftMillis),
                         elapsedMillis = SystemClock.elapsedRealtime() - startedAt,

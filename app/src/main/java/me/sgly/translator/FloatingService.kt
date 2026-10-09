@@ -144,7 +144,10 @@ class FloatingService :
                                     TranslatorState.currentThinkingEffort(),
                                     onOutputDelta = { TranslatorState.onOutputDelta(it) },
                                     onReasoningDelta = { TranslatorState.onReasoningDelta(it) },
-                                    onStats = { TranslatorState.onStats(it) },
+                                    onStats = {
+                                        TranslatorState.onStats(it)
+                                        TranslatorState.onVisionRequest()
+                                    },
                                 )
                             // The request may have finished after the run was cancelled; a dead run has no state to write.
                             currentCoroutineContext().ensureActive()
@@ -175,9 +178,13 @@ class FloatingService :
                                     TranslatorState.currentThinkingEffort(),
                                     onOutputDelta = { TranslatorState.onOutputDelta(it) },
                                     onReasoningDelta = { TranslatorState.onReasoningDelta(it) },
-                                    onStats = { TranslatorState.onStats(it) },
+                                    onStats = {
+                                        TranslatorState.onStats(it)
+                                        TranslatorState.onParseRequest()
+                                    },
                                 )
                             currentCoroutineContext().ensureActive()
+                            recordRound()
                             TranslatorState.setTranslationResult(result)
                             TranslatorState.transition(AppPhase.Done, TransitionReason.TranslateSuccess)
                         } catch (e: Exception) {
@@ -390,6 +397,43 @@ class FloatingService :
             showSheet(clearTask = returning)
             delay(400)
             updateFabVisibility()
+        }
+    }
+
+    /**
+     * Records the finished round, opening its translation first if this is the round that produced
+     * one. A stats failure must never surface, so it is swallowed.
+     */
+    private suspend fun recordRound() {
+        val stats = TranslatorState.runStats.value ?: return
+        val reason = TranslatorState.runReason ?: return
+        try {
+            val dao = StatsDatabase.get(this).statsDao()
+            val now = System.currentTimeMillis()
+            val translationId =
+                TranslatorState.translationId
+                    ?: dao.insertTranslation(Translation(createdAt = now)).also {
+                        TranslatorState.translationId = it
+                    }
+            dao.insertRound(
+                InferenceRound(
+                    translationId = translationId,
+                    createdAt = now,
+                    reason = reason.name,
+                    model = stats.model,
+                    thinkingEffort = TranslatorState.currentThinkingEffort(),
+                    visionRequests = TranslatorState.roundVisionRequests,
+                    parseRequests = TranslatorState.roundParseRequests,
+                    inputTokens = stats.usage.input,
+                    cachedInputTokens = stats.usage.cached,
+                    outputTokens = stats.usage.output,
+                    reasoningTokens = stats.usage.reasoning,
+                    totalTtftMillis = stats.ttfts.sum(),
+                    elapsedMillis = stats.elapsedMillis,
+                ),
+            )
+        } catch (e: Exception) {
+            AppLog.w("Stats", "round not recorded: ${e.message}")
         }
     }
 

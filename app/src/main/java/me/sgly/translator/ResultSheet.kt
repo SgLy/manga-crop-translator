@@ -1,5 +1,6 @@
 package me.sgly.translator
 
+import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -130,6 +131,7 @@ fun ResultSheet(phase: AppPhase) {
                 val occurrences = occurrencesFor(cards, selectedIndices, ocrResult, translationResult)
                 scope.launch {
                     VocabularyDatabase.get(context).vocabularyDao().record(occurrences)
+                    recordSavedWords(context, occurrences)
                     val message =
                         resources.getQuantityString(
                             R.plurals.saved_words,
@@ -527,6 +529,23 @@ private fun CardStrip(
     }
 }
 
+/** Records how much of this result was kept. A stats failure must never surface, so it is swallowed. */
+private suspend fun recordSavedWords(
+    context: Context,
+    occurrences: List<VocabularyOccurrence>,
+) {
+    val translationId = TranslatorState.translationId ?: return
+    try {
+        StatsDatabase.get(context).statsDao().setRecordedWords(
+            translationId,
+            occurrences.size,
+            occurrences.count { !it.origin.isNullOrBlank() },
+        )
+    } catch (e: Exception) {
+        AppLog.w("Stats", "saved words not recorded: ${e.message}")
+    }
+}
+
 /**
  * The database rows behind one 「记一下」. A card's sentence is its whole block: that is the unit the
  * model translated, so it is also the unit the reader heard as "this sentence".
@@ -545,7 +564,7 @@ private fun occurrencesFor(
         VocabularyOccurrence(
             lemma = card.word.lemma,
             reading = card.word.reading,
-            origin = card.word.origin.orEmpty(),
+            origin = card.word.origin,
             surface = card.word.word,
             definition = card.word.definition,
             sentence = sentence,

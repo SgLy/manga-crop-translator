@@ -63,7 +63,7 @@ data class VocabularyEntry(
 data class VocabularyOccurrence(
     val lemma: String,
     val reading: String,
-    val origin: String,
+    val origin: String?,
     val surface: String,
     val definition: String,
     val sentence: String,
@@ -110,7 +110,8 @@ abstract class VocabularyDao {
                     VocabularyWord(
                         lemma = occurrence.lemma,
                         reading = occurrence.reading,
-                        origin = occurrence.origin,
+                        // The column is NOT NULL, so a word the model gave no etymology for is stored empty.
+                        origin = occurrence.origin.orEmpty(),
                     ),
                 )
             // -1 means the unique lemma index rejected the insert, so the headword row already exists.

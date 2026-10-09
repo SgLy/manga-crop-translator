@@ -52,4 +52,27 @@
     <string name="nav_practice_title">练习</string>
     <string name="nav_stats_title">统计</string>
     <string name="nav_settings_title">设置</string>
+
+    <string name="stats_total_tokens">累计 token</string>
+    <string name="stats_input">输入</string>
+    <string name="stats_output">输出</string>
+    <string name="stats_cached">缓存</string>
+    <string name="stats_reasoning">思考</string>
+    <string name="stats_runs">翻译次数</string>
+    <string name="stats_avg_reasoning">平均推理耗时</string>
+    <string name="stats_cache_hit">缓存命中</string>
+    <string name="stats_speed">生成速度</string>
+    <string name="stats_inference_total">推理总数</string>
+    <string name="stats_vision">识图</string>
+    <string name="stats_parse">解析</string>
+    <string name="stats_saved">记过的词</string>
+    <string name="stats_loanwords">外来语</string>
+    <string name="stats_activity">活动</string>
+    <string name="stats_reasoning_share">思考占比</string>
+    <string name="stats_average">平均每轮</string>
+    <string name="stats_average_tokens">输入 + 输出 token</string>
+    <string name="stats_average_elapsed">耗时</string>
+    <string name="stats_legend_less">少</string>
+    <string name="stats_legend_more">多</string>
+    <string name="stats_empty">还没有记录。翻译一次，这里就会有数据。</string>
 </resources>

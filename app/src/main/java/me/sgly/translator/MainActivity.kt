@@ -166,7 +166,7 @@ class MainActivity : CapturePermissionActivity() {
                         when (destination) {
                             Destination.WordList -> summaries?.let { VocabularyListScreen(summaries = it) }
                             Destination.Practice -> Box(modifier = Modifier.fillMaxSize())
-                            Destination.Stats -> Box(modifier = Modifier.fillMaxSize())
+                            Destination.Stats -> StatsScreen()
                             Destination.Settings -> SettingsScreen(settingsManager)
                         }
                     }
@@ -179,7 +179,8 @@ class MainActivity : CapturePermissionActivity() {
 private enum class Destination { WordList, Practice, Stats, Settings }
 
 private val StartButtonSize = 64.dp
-private val StartButtonOverhang = 16.dp
+
+internal val StartButtonOverhang = 16.dp
 
 @Composable
 private fun StartButton(
