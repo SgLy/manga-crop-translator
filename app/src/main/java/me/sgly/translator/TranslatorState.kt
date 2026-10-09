@@ -85,9 +85,9 @@ object TranslatorState {
     private val _phase = MutableStateFlow(AppPhase.None)
     val phase: StateFlow<AppPhase> = _phase.asStateFlow()
 
-    /** Whether a result sheet window exists. Owned by SheetActivity, read by the sheet driver. */
-    private val _sheetShown = MutableStateFlow(false)
-    val sheetShown: StateFlow<Boolean> = _sheetShown.asStateFlow()
+    /** Whether the result sheet is on screen. Owned by SheetActivity, read by the sheet driver. */
+    private val _sheetOnScreen = MutableStateFlow(false)
+    val sheetOnScreen: StateFlow<Boolean> = _sheetOnScreen.asStateFlow()
 
     /**
      * Whether the in-flight streaming response has already delivered its first token.
@@ -173,8 +173,8 @@ object TranslatorState {
         _errorText.value = text
     }
 
-    fun setSheetShown(shown: Boolean) {
-        _sheetShown.value = shown
+    fun setSheetOnScreen(onScreen: Boolean) {
+        _sheetOnScreen.value = onScreen
     }
 
     /**

@@ -80,17 +80,18 @@ class SheetActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        TranslatorState.setSheetShown(true)
+        TranslatorState.setSheetOnScreen(true)
+    }
+
+    /** The sheet is only the app's UI while it is actually on screen, not merely alive. */
+    override fun onStop() {
+        TranslatorState.setSheetOnScreen(false)
+        super.onStop()
     }
 
     override fun onResume() {
         super.onResume()
         resumeCount++
-    }
-
-    override fun onDestroy() {
-        TranslatorState.setSheetShown(false)
-        super.onDestroy()
     }
 
     override fun finish() {

@@ -97,7 +97,7 @@ class FloatingService :
         // The FAB and the result sheet are recomputed whenever the phase or the sheet window changes: the
         // sheet is re-driven when its window disappears without the phase changing.
         serviceScope.launch {
-            combine(TranslatorState.phase, TranslatorState.sheetShown) { phase, _ -> phase }
+            combine(TranslatorState.phase, TranslatorState.sheetOnScreen) { phase, _ -> phase }
                 .collect { phase ->
                     updateFabVisibility()
                     updateSheetVisibility(phase)
@@ -428,18 +428,14 @@ class FloatingService :
 
     private fun isCapturedContentVisible(): Boolean = session?.capturedContentVisible?.value ?: false
 
-    /**
-     * The sheet is on screen exactly while [AppPhase.showsSheet] holds and its window is gone, the
-     * same way the FAB follows the phase. The launch needs a visible window of ours, so the FAB
-     * window is flashed first.
-     */
+    /** The launch needs a visible window of ours, so the FAB window is flashed first. */
     private fun updateSheetVisibility(phase: AppPhase) {
         val visible = isCapturedContentVisible()
         val returning = visible && !lastCapturedContentVisible
         lastCapturedContentVisible = visible
         val enteredSheetPhase = phase != lastPhase
         lastPhase = phase
-        if (!phase.showsSheet || TranslatorState.sheetShown.value) return
+        if (!phase.showsSheet || TranslatorState.sheetOnScreen.value) return
         if (!enteredSheetPhase && !visible) return
         if (!::floatingView.isInitialized) return
         serviceScope.launch {
@@ -448,7 +444,7 @@ class FloatingService :
             if (returning) delay(500)
             val abandoned =
                 !TranslatorState.phase.value.showsSheet ||
-                    TranslatorState.sheetShown.value ||
+                    TranslatorState.sheetOnScreen.value ||
                     (returning && !isCapturedContentVisible())
             if (abandoned) return@launch
             floatingView.visibility = View.VISIBLE
