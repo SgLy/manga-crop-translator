@@ -34,14 +34,6 @@ import java.util.concurrent.TimeUnit
 class OpenAIApiClient(
     private val settingsManager: SettingsManager,
 ) {
-    private val client =
-        OkHttpClient
-            .Builder()
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(180, TimeUnit.SECONDS)
-            .writeTimeout(180, TimeUnit.SECONDS)
-            .build()
-
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val jsonDecoder = Json { ignoreUnknownKeys = true }
 
@@ -372,6 +364,17 @@ class OpenAIApiClient(
         // 使用 PNG 无损格式，最高识别精度
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
         return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+    }
+
+    companion object {
+        private val client: OkHttpClient by lazy {
+            OkHttpClient
+                .Builder()
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(180, TimeUnit.SECONDS)
+                .writeTimeout(180, TimeUnit.SECONDS)
+                .build()
+        }
     }
 }
 
