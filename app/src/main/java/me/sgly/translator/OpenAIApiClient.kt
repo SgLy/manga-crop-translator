@@ -3,9 +3,10 @@ package me.sgly.translator
 import android.graphics.Bitmap
 import android.os.SystemClock
 import android.util.Base64
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.encodeToString
@@ -20,14 +21,15 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.coroutineContext
 
 class OpenAIApiClient(
     private val settingsManager: SettingsManager,
@@ -239,11 +241,7 @@ class OpenAIApiClient(
             }
 
             val call = client.newCall(request)
-            // The blocking read below ignores coroutine cancellation, so abort the call when the job dies.
-            coroutineContext.job.invokeOnCompletion { cause ->
-                if (cause is CancellationException) call.cancel()
-            }
-            call.execute().use { response ->
+            call.abortingOnCancellation { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body.string()
                     AppLog.e("$tag/RequestError", "API Error Response: ${response.code} - $errorBody")
@@ -378,6 +376,26 @@ class OpenAIApiClient(
 }
 
 private val schemaJsonDecoder = Json { ignoreUnknownKeys = true }
+
+/**
+ * Runs [block] on a call whose blocking read ignores coroutine cancellation. The abort has to come
+ * from a sibling coroutine, since this one is stuck inside the read it needs to abort.
+ */
+private suspend fun <T> Call.abortingOnCancellation(block: suspend (Response) -> T): T =
+    coroutineScope {
+        val call = this@abortingOnCancellation
+        val abort = launch { suspendCancellableCoroutine<Unit> { it.invokeOnCancellation { call.cancel() } } }
+        try {
+            val response = call.execute()
+            try {
+                block(response)
+            } finally {
+                response.close()
+            }
+        } finally {
+            abort.cancel()
+        }
+    }
 
 /**
  * Builds an OpenAI-compatible tool `parameters` object from a Kotlin data class.
