@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
+import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.IBinder
 import android.util.AttributeSet
@@ -43,12 +44,13 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class FloatingService :
@@ -57,7 +59,8 @@ class FloatingService :
     SavedStateRegistryOwner {
     private lateinit var windowManager: WindowManager
     private lateinit var floatingView: View
-    private lateinit var screenCaptureManager: ScreenCaptureManager
+    private var session: CaptureSession? = null
+    private var sessionJobs: List<Job> = emptyList()
     private lateinit var overlayScreenManager: OverlayScreenManager
     private lateinit var openAIApiClient: OpenAIApiClient
     private lateinit var settingsManager: SettingsManager
@@ -76,29 +79,18 @@ class FloatingService :
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         createNotificationChannel()
-        screenCaptureManager = ScreenCaptureManager(this)
-        screenCaptureManager.onCapturedContentVisibilityChanged = { visible ->
-            val wasVisible = TranslatorState.capturedContentVisible.value
-            TranslatorState.setCapturedContentVisible(visible)
-            // The captured content is back on screen, so any logs screen covering it is gone.
-            if (visible && !wasVisible) TranslatorState.closeLogsIfOpen()
-        }
         overlayScreenManager = OverlayScreenManager(this)
         settingsManager = SettingsManager(this)
         AppLog.forwardToLogcat = settingsManager.forwardLogsToLogcat
         openAIApiClient = OpenAIApiClient(settingsManager)
 
-        // The FAB and the result sheet are recomputed whenever the phase, the captured content's
-        // visibility or the sheet window changes.
+        // The FAB and the result sheet are recomputed whenever the phase or the sheet window changes: the
+        // sheet is re-driven when its window disappears without the phase changing.
         serviceScope.launch {
-            combine(
-                TranslatorState.phase,
-                TranslatorState.capturedContentVisible,
-                TranslatorState.sheetShown,
-            ) { phase, visible, _ -> phase to visible }
-                .collect { (phase, visible) ->
+            combine(TranslatorState.phase, TranslatorState.sheetShown) { phase, _ -> phase }
+                .collect { phase ->
                     updateFabVisibility()
-                    updateSheetVisibility(phase, visible)
+                    updateSheetVisibility(phase)
                 }
         }
 
@@ -107,13 +99,18 @@ class FloatingService :
             TranslatorState.phase.collectLatest { phase ->
                 when (phase) {
                     AppPhase.Capturing -> {
-                        if (!screenCaptureManager.captureScreen()) {
+                        val capture = session
+                        if (capture == null) {
+                            TranslatorState.transition(AppPhase.None, TransitionReason.CaptureLost)
+                            return@collectLatest
+                        }
+                        val frame = capture.captureFrame()
+                        if (frame == null) {
                             TranslatorState.transition(AppPhase.Idle, TransitionReason.CaptureError)
                             return@collectLatest
                         }
-                        val bitmap = screenCaptureManager.screenCaptureFlow.first()
-                        AppLog.i("TranslatorState", "capturedBitmap: ${bitmap.width}×${bitmap.height}")
-                        TranslatorState.capturedBitmap = bitmap
+                        AppLog.i("TranslatorState", "capturedBitmap: ${frame.width}×${frame.height}")
+                        TranslatorState.capturedBitmap = frame
                         TranslatorState.transition(AppPhase.Cropping, TransitionReason.FrameCaptured)
                     }
 
@@ -195,7 +192,7 @@ class FloatingService :
                         }
                     }
 
-                    else -> { /* Idle/ViewingLast/Done/OcrError/TranslateError: UI handles these */ }
+                    else -> { /* None/Idle/ViewingLast/Done/OcrError/TranslateError: UI handles these */ }
                 }
             }
         }
@@ -212,11 +209,20 @@ class FloatingService :
         if (intent != null && intent.hasExtra(EXTRA_RESULT_CODE)) {
             val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
             val resultData = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
-            if (resultData != null) {
-                val mediaProjectionManager = getSystemService(MediaProjectionManager::class.java)
-                val projection = mediaProjectionManager.getMediaProjection(resultCode, resultData)
-                projection?.let { screenCaptureManager.setMediaProjection(it) }
+            val projection =
+                try {
+                    resultData?.let {
+                        getSystemService(MediaProjectionManager::class.java).getMediaProjection(resultCode, it)
+                    }
+                } catch (e: Exception) {
+                    AppLog.w("CaptureSession", "grant rejected: ${e.message}")
+                    null
+                }
+            if (projection == null) {
+                stopSelf()
+                return START_NOT_STICKY
             }
+            startSession(projection)
         }
 
         if (!::windowManager.isInitialized) {
@@ -368,20 +374,70 @@ class FloatingService :
     private var lastCapturedContentVisible = false
 
     /**
+     * Adopts a freshly granted lease. A session still running is torn down first, so a re-grant can
+     * never leave the previous lease's display or callback behind.
+     */
+    private fun startSession(projection: MediaProjection) {
+        endSession()
+        val started =
+            try {
+                CaptureSession(this, projection)
+            } catch (e: Exception) {
+                AppLog.w("CaptureSession", "not started: ${e.message}")
+                stopSelf()
+                return
+            }
+        session = started
+        sessionJobs =
+            listOf(
+                serviceScope.launch {
+                    started.capturedContentVisible.collect { visible ->
+                        if (visible && !lastCapturedContentVisible) TranslatorState.closeLogsIfOpen()
+                        updateFabVisibility()
+                        updateSheetVisibility(TranslatorState.phase.value)
+                    }
+                },
+                serviceScope.launch {
+                    started.leaseLost.collect { lost ->
+                        if (lost) onLeaseLost()
+                    }
+                },
+            )
+        TranslatorState.transition(AppPhase.Idle, TransitionReason.CaptureGranted)
+    }
+
+    private fun endSession() {
+        sessionJobs.forEach { it.cancel() }
+        sessionJobs = emptyList()
+        session?.close()
+        session = null
+        lastCapturedContentVisible = false
+        if (TranslatorState.phase.value != AppPhase.None) {
+            TranslatorState.transition(AppPhase.None, TransitionReason.CaptureLost)
+        }
+        updateFabVisibility()
+    }
+
+    private fun onLeaseLost() {
+        endSession()
+        stopSelf()
+    }
+
+    private fun isCapturedContentVisible(): Boolean = session?.capturedContentVisible?.value ?: false
+
+    /**
      * The sheet is on screen exactly while [AppPhase.showsSheet] holds and its window is gone, the
      * same way the FAB follows the phase. The launch needs a visible window of ours, so the FAB
      * window is flashed first.
      */
-    private fun updateSheetVisibility(
-        phase: AppPhase,
-        capturedContentVisible: Boolean,
-    ) {
-        val returning = capturedContentVisible && !lastCapturedContentVisible
-        lastCapturedContentVisible = capturedContentVisible
+    private fun updateSheetVisibility(phase: AppPhase) {
+        val visible = isCapturedContentVisible()
+        val returning = visible && !lastCapturedContentVisible
+        lastCapturedContentVisible = visible
         val enteredSheetPhase = phase != lastPhase
         lastPhase = phase
         if (!phase.showsSheet || TranslatorState.sheetShown.value) return
-        if (!enteredSheetPhase && !capturedContentVisible) return
+        if (!enteredSheetPhase && !visible) return
         if (!::floatingView.isInitialized) return
         serviceScope.launch {
             // Delay past the system's transition to the shared app: launching during it makes
@@ -390,7 +446,7 @@ class FloatingService :
             val abandoned =
                 !TranslatorState.phase.value.showsSheet ||
                     TranslatorState.sheetShown.value ||
-                    (returning && !TranslatorState.capturedContentVisible.value)
+                    (returning && !isCapturedContentVisible())
             if (abandoned) return@launch
             floatingView.visibility = View.VISIBLE
             delay(120)
@@ -443,7 +499,7 @@ class FloatingService :
      */
     private fun updateFabVisibility() {
         if (!::floatingView.isInitialized) return
-        val show = TranslatorState.phase.value == AppPhase.Idle && TranslatorState.capturedContentVisible.value
+        val show = TranslatorState.phase.value == AppPhase.Idle && isCapturedContentVisible()
         floatingView.visibility = if (show) View.VISIBLE else View.INVISIBLE
     }
 
@@ -461,10 +517,11 @@ class FloatingService :
 
     override fun onDestroy() {
         super.onDestroy()
+        serviceScope.cancel()
+        endSession()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-        screenCaptureManager.release()
         overlayScreenManager.release()
         if (::windowManager.isInitialized && ::floatingView.isInitialized) {
             windowManager.removeView(floatingView)

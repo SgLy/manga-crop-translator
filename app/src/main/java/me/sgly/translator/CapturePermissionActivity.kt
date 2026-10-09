@@ -47,6 +47,7 @@ abstract class CapturePermissionActivity : ComponentActivity() {
     /** Runs the flow; success starts [FloatingService]. */
     protected fun startCapture() {
         TranslatorState.setThinkingSequence(SettingsManager(this).thinkingSequence)
+        stopService(Intent(this, FloatingService::class.java))
         TranslatorState.reset()
         notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }

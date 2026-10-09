@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class AppPhase {
+    None, // No screen capture lease: nothing to translate, no button to show
     Idle, // FAB visible, waiting for user
     Capturing, // FAB hidden, waiting for screen frame
     Cropping, // Crop overlay visible, user selecting region
@@ -25,15 +26,17 @@ enum class AppPhase {
         get() =
             when (this) {
                 Recognizing, Parsing, Done, OcrError, TranslateError, ViewingLast -> true
-                Idle, Capturing, Cropping, ShowingLogs -> false
+                None, Idle, Capturing, Cropping, ShowingLogs -> false
             }
 }
 
 enum class TransitionReason {
     FabClicked, // Idle → Capturing
     FabLongPressed, // Idle → ViewingLast
+    CaptureGranted, // any → Idle (a fresh lease is ready to capture with)
+    CaptureLost, // any → None (the lease is gone, by this app or by the system)
     FrameCaptured, // Capturing → Cropping
-    CaptureError, // Capturing → Idle (mediaProjection not ready)
+    CaptureError, // Capturing → Idle (no frame arrived)
     CropSelected, // Cropping → Recognizing
     CropCancelled, // Cropping → Idle
     OcrSuccess, // Recognizing → Parsing
@@ -43,7 +46,7 @@ enum class TransitionReason {
     ThinkHarder, // Done → Recognizing (re-run everything, same crop)
     Retry, // OcrError → Recognizing; TranslateError → Parsing
     Dismiss, // Done/OcrError/TranslateError → Idle
-    Reset, // any → Idle (triggered from MainActivity on fresh start)
+    Reset, // any → None (a capture flow is starting over)
     ShowLogs, // Done/OcrError/TranslateError/ViewingLast → ShowingLogs
     CloseLogs, // ShowingLogs → the phase it was opened from
 }
@@ -79,12 +82,8 @@ enum class ThinkingLevel {
 }
 
 object TranslatorState {
-    private val _phase = MutableStateFlow(AppPhase.Idle)
+    private val _phase = MutableStateFlow(AppPhase.None)
     val phase: StateFlow<AppPhase> = _phase.asStateFlow()
-
-    /** Whether the captured region (the shared app) is currently visible on screen. */
-    private val _capturedContentVisible = MutableStateFlow(false)
-    val capturedContentVisible: StateFlow<Boolean> = _capturedContentVisible.asStateFlow()
 
     /** Whether a result sheet window exists. Owned by SheetActivity, read by the sheet driver. */
     private val _sheetShown = MutableStateFlow(false)
@@ -172,10 +171,6 @@ object TranslatorState {
 
     fun setErrorText(text: String) {
         _errorText.value = text
-    }
-
-    fun setCapturedContentVisible(visible: Boolean) {
-        _capturedContentVisible.value = visible
     }
 
     fun setSheetShown(shown: Boolean) {
@@ -286,7 +281,9 @@ object TranslatorState {
                 // TranslateError retry preserves ocrResult (only re-runs TranslateModel)
             }
 
-            TransitionReason.Reset -> {
+            TransitionReason.CaptureLost,
+            TransitionReason.Reset,
+            -> {
                 capturedBitmap = null
                 croppedBitmap = null
                 _ocrResult.value = null
@@ -295,6 +292,7 @@ object TranslatorState {
                 _thinkingLevelIndex.value = 0
                 lastTranslation = null
                 resetRunStats()
+                resetStreamProgress()
                 runReason = null
                 translationId = null
             }
@@ -330,22 +328,7 @@ object TranslatorState {
         transition(phaseBeforeLogs ?: AppPhase.Done, TransitionReason.CloseLogs)
     }
 
-    /** Resets all state to Idle. Called from MainActivity on fresh start. */
     fun reset() {
-        val from = _phase.value
-        capturedBitmap = null
-        croppedBitmap = null
-        lastTranslation = null
-        runReason = null
-        translationId = null
-        _ocrResult.value = null
-        _translationResult.value = null
-        _errorText.value = ""
-        _thinkingLevelIndex.value = 0
-        resetRunStats()
-        _capturedContentVisible.value = false
-        resetStreamProgress()
-        _phase.value = AppPhase.Idle
-        _lastTransition.tryEmit(Transition(from, AppPhase.Idle, TransitionReason.Reset))
+        transition(AppPhase.None, TransitionReason.Reset)
     }
 }
