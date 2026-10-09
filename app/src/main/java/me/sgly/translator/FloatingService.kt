@@ -59,6 +59,16 @@ class FloatingService :
     SavedStateRegistryOwner {
     private lateinit var windowManager: WindowManager
     private lateinit var floatingView: View
+
+    /** Held as a field so a pending press can be cancelled when the service goes away. */
+    private val fabLongPress =
+        Runnable {
+            isFabLongPressed = true
+            floatingView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            onFabLongPressed()
+        }
+    private var isFabLongPressed = false
+
     private var session: CaptureSession? = null
     private var sessionJobs: List<Job> = emptyList()
     private lateinit var overlayScreenManager: OverlayScreenManager
@@ -299,13 +309,6 @@ class FloatingService :
                 private var initialTouchX = 0f
                 private var initialTouchY = 0f
                 private var isDragging = false
-                private var longPressed = false
-                private val longPress =
-                    Runnable {
-                        longPressed = true
-                        frameLayout.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        onFabLongPressed()
-                    }
 
                 override fun onTouch(
                     v: View,
@@ -318,8 +321,8 @@ class FloatingService :
                             initialTouchX = event.rawX
                             initialTouchY = event.rawY
                             isDragging = false
-                            longPressed = false
-                            v.postDelayed(longPress, longPressTimeout)
+                            isFabLongPressed = false
+                            v.postDelayed(fabLongPress, longPressTimeout)
                             return true
                         }
 
@@ -328,7 +331,7 @@ class FloatingService :
                             val dy = event.rawY - initialTouchY
                             if (kotlin.math.abs(dx) > 10 || kotlin.math.abs(dy) > 10) {
                                 // Moving means dragging, which is not the long press.
-                                if (!isDragging) v.removeCallbacks(longPress)
+                                if (!isDragging) v.removeCallbacks(fabLongPress)
                                 isDragging = true
                             }
                             if (isDragging) {
@@ -340,12 +343,12 @@ class FloatingService :
                         }
 
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                            v.removeCallbacks(longPress)
+                            v.removeCallbacks(fabLongPress)
                             if (isDragging) {
                                 // Persist the dragged position so it survives restarts.
                                 settingsManager.fabX = params.x
                                 settingsManager.fabY = params.y
-                            } else if (!longPressed) {
+                            } else if (!isFabLongPressed) {
                                 v.performClick()
                             }
                             return true
@@ -524,6 +527,7 @@ class FloatingService :
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         overlayScreenManager.release()
         if (::windowManager.isInitialized && ::floatingView.isInitialized) {
+            floatingView.removeCallbacks(fabLongPress)
             windowManager.removeView(floatingView)
         }
     }
