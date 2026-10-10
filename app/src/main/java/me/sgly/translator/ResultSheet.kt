@@ -73,7 +73,7 @@ fun ResultSheet(phase: AppPhase) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val showTokenUsage = remember { SettingsManager(context).showTokenUsage }
-    val requests = if (showTokenUsage) runRequests else emptyList()
+    val requests = if (showTokenUsage) runRequests.filter { it.state == RequestState.Success } else emptyList()
 
     Column(
         modifier =

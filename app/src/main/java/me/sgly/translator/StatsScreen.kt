@@ -59,9 +59,9 @@ private fun level(runs: Int): Int =
 fun StatsScreen() {
     val context = LocalContext.current
     val dao = remember { StatsDatabase.get(context).statsDao() }
-    val totals by remember { dao.totals() }.collectAsState(initial = null)
+    val totals by remember { dao.totals(RequestState.Success.name) }.collectAsState(initial = null)
     val counts by remember { dao.countsByKind() }.collectAsState(initial = emptyList())
-    val daily by remember { dao.dailyRuns() }.collectAsState(initial = emptyList())
+    val daily by remember { dao.dailyRuns(RequestState.Success.name) }.collectAsState(initial = emptyList())
 
     val stats = totals ?: return
     val visionCount = counts.firstOrNull { it.kind == RequestKind.Vision.name }?.count ?: 0L
@@ -132,7 +132,7 @@ private fun WordsCard(stats: StatsTotals) {
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier.padding(top = 6.dp),
             ) {
-                Breakdown(R.string.stats_runs, compact(stats.translations))
+                Breakdown(R.string.stats_runs, compact(stats.successfulRounds))
                 Breakdown(R.string.stats_loanwords, compact(stats.recordedLoanwordCount), nested = true)
             }
         }
@@ -325,7 +325,7 @@ private fun levelColor(level: Int): Color =
 
 @Composable
 private fun AverageCard(stats: StatsTotals) {
-    val rounds = stats.rounds.coerceAtLeast(1)
+    val rounds = stats.successfulRounds.coerceAtLeast(1)
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = MaterialTheme.shapes.extraLarge,

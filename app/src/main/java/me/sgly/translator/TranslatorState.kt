@@ -99,6 +99,9 @@ object TranslatorState {
     private val _runRequests = MutableStateFlow<List<RequestStats>>(emptyList())
     val runRequests: StateFlow<List<RequestStats>> = _runRequests.asStateFlow()
 
+    private val _reportedRequests = MutableSharedFlow<RequestStats>(extraBufferCapacity = 16)
+    val reportedRequests: SharedFlow<RequestStats> = _reportedRequests.asSharedFlow()
+
     private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
     val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
 
@@ -130,6 +133,9 @@ object TranslatorState {
 
     /** Stats row of the translation on screen, so 「记一下」 can record what it saved. */
     var translationId: Long? = null
+
+    /** Stats row of the round in flight, so each request can be attached as it finishes. */
+    var roundId: Long? = null
 
     /** The result phase a logs screen was opened from, so closing it returns there. */
     var phaseBeforeLogs: AppPhase? = null
@@ -180,6 +186,7 @@ object TranslatorState {
     /** Called once per request with what that request cost. */
     fun onStats(stats: RequestStats) {
         _runRequests.value += stats
+        _reportedRequests.tryEmit(stats)
     }
 
     private fun resetStreamProgress() {
@@ -190,6 +197,7 @@ object TranslatorState {
 
     private fun resetRunStats() {
         _runRequests.value = emptyList()
+        roundId = null
     }
 
     /** The single entry point for all state transitions. */

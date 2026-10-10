@@ -105,6 +105,10 @@ class FloatingService :
         }
 
         serviceScope.launch {
+            TranslatorState.reportedRequests.collect { recordRequest(it) }
+        }
+
+        serviceScope.launch {
             TranslatorState.phase.collectLatest { phase ->
                 when (phase) {
                     AppPhase.Capturing -> {
@@ -184,7 +188,6 @@ class FloatingService :
                                     onStats = TranslatorState::onStats,
                                 )
                             currentCoroutineContext().ensureActive()
-                            recordRound()
                             TranslatorState.setTranslationResult(result)
                             TranslatorState.transition(AppPhase.Done, TransitionReason.TranslateSuccess)
                         } catch (e: Exception) {
@@ -441,38 +444,44 @@ class FloatingService :
     }
 
     /** A stats failure must never surface, so it is swallowed. */
-    private suspend fun recordRound() {
-        val requests = TranslatorState.runRequests.value
+    private suspend fun recordRequest(stats: RequestStats) {
         val reason = TranslatorState.runReason ?: return
-        if (requests.isEmpty()) return
         try {
             val dao = StatsDatabase.get(this).statsDao()
-            val now = System.currentTimeMillis()
             val translationId =
                 TranslatorState.translationId
-                    ?: dao.insertTranslation(Translation(createdAt = now)).also {
+                    ?: dao.insertTranslation(Translation(createdAt = stats.startedAtMillis)).also {
                         TranslatorState.translationId = it
                     }
-            val effort = TranslatorState.currentThinkingEffort()
-            dao.insertRound(
-                InferenceRound(translationId = translationId, createdAt = now, reason = reason.name),
-                requests.map {
+            val roundId =
+                TranslatorState.roundId
+                    ?: dao
+                        .insertRoundRow(
+                            InferenceRound(
+                                translationId = translationId,
+                                reason = reason.name,
+                            ),
+                        ).also { TranslatorState.roundId = it }
+            dao.insertRequests(
+                listOf(
                     InferenceRequest(
-                        roundId = 0,
-                        kind = it.kind.name,
-                        model = it.model,
-                        thinkingEffort = effort,
-                        inputTokens = it.usage.input,
-                        cachedInputTokens = it.usage.cached,
-                        outputTokens = it.usage.output,
-                        reasoningTokens = it.usage.reasoning,
-                        ttftMillis = it.ttftMillis,
-                        elapsedMillis = it.elapsedMillis,
-                    )
-                },
+                        roundId = roundId,
+                        createdAt = stats.startedAtMillis,
+                        kind = stats.kind.name,
+                        state = stats.state.name,
+                        model = stats.model,
+                        thinkingEffort = TranslatorState.currentThinkingEffort(),
+                        inputTokens = stats.usage.input,
+                        cachedInputTokens = stats.usage.cached,
+                        outputTokens = stats.usage.output,
+                        reasoningTokens = stats.usage.reasoning,
+                        ttftMillis = stats.ttftMillis,
+                        elapsedMillis = stats.elapsedMillis,
+                    ),
+                ),
             )
         } catch (e: Exception) {
-            AppLog.w("Stats", "round not recorded: ${e.message}")
+            AppLog.w("Stats", "request not recorded: ${e.message}")
         }
     }
 

@@ -5,6 +5,7 @@ import android.os.SystemClock
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -30,6 +31,7 @@ import okhttp3.Response
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.coroutineContext
 
 class OpenAIApiClient(
     private val settingsManager: SettingsManager,
@@ -167,6 +169,25 @@ class OpenAIApiClient(
             decodeToolResult(tag, finalJson, TranslationResult.serializer())
         }
 
+    /** Whatever a request had produced when it stopped is reported as it stands, tokens included. */
+    private suspend fun failedStats(
+        kind: RequestKind,
+        model: String,
+        usage: TokenUsage,
+        ttftMillis: Long,
+        startedAtMillis: Long,
+        startedAt: Long,
+    ): RequestStats =
+        RequestStats(
+            kind = kind,
+            state = if (coroutineContext.isActive) RequestState.Error else RequestState.Cancel,
+            model = model,
+            usage = usage,
+            startedAtMillis = startedAtMillis,
+            ttftMillis = ttftMillis,
+            elapsedMillis = SystemClock.elapsedRealtime() - startedAt,
+        )
+
     private data class ModelConnection(
         val apiKey: String,
         val endpoint: String,
@@ -224,6 +245,7 @@ class OpenAIApiClient(
                     .post(requestJson.toRequestBody(jsonMediaType))
                     .build()
 
+            val startedAtMillis = System.currentTimeMillis()
             val startedAt = SystemClock.elapsedRealtime()
             var ttftMillis = 0L
             var reportedUsage = TokenUsage()
@@ -233,88 +255,104 @@ class OpenAIApiClient(
             }
 
             val call = client.newCall(request)
-            call.abortingOnCancellation { response ->
-                if (!response.isSuccessful) {
-                    val errorBody = response.body.string()
-                    AppLog.e("$tag/RequestError", "API Error Response: ${response.code} - $errorBody")
-                    throw Exception("$tag request failed: ${response.code}\n$errorBody")
-                }
+            try {
+                call.abortingOnCancellation { response ->
+                    if (!response.isSuccessful) {
+                        val errorBody = response.body.string()
+                        AppLog.e("$tag/RequestError", "API Error Response: ${response.code} - $errorBody")
+                        throw Exception("$tag request failed: ${response.code}\n$errorBody")
+                    }
 
-                val source = response.body.source()
-                val contentBuilder = java.lang.StringBuilder()
-                val functionArguments = java.lang.StringBuilder()
-                val reasoningBuilder = java.lang.StringBuilder()
+                    val source = response.body.source()
+                    val contentBuilder = java.lang.StringBuilder()
+                    val functionArguments = java.lang.StringBuilder()
+                    val reasoningBuilder = java.lang.StringBuilder()
 
-                while (!source.exhausted()) {
-                    val line = source.readUtf8Line() ?: continue
-                    if (line.isEmpty() || !line.startsWith("data:")) continue
-                    val dataStr = line.substringAfter("data:").trim()
-                    if (dataStr == "[DONE]") break
+                    while (!source.exhausted()) {
+                        val line = source.readUtf8Line() ?: continue
+                        if (line.isEmpty() || !line.startsWith("data:")) continue
+                        val dataStr = line.substringAfter("data:").trim()
+                        if (dataStr == "[DONE]") break
 
-                    try {
-                        val jsonChunk = JSONObject(dataStr)
-                        val choices = jsonChunk.optJSONArray("choices")
-                        if (choices != null && choices.length() > 0) {
-                            val delta = choices.getJSONObject(0).optJSONObject("delta")
-                            if (delta != null) {
-                                val reasoning = delta.optString("reasoning_content", "")
-                                if (reasoning.isNotEmpty()) {
-                                    markFirstToken()
-                                    onReasoningDelta(reasoning)
-                                    reasoningBuilder.append(reasoning)
-                                }
-
-                                val content = delta.optString("content", "")
-                                if (content.isNotEmpty()) {
-                                    markFirstToken()
-                                    onOutputDelta(content)
-                                    contentBuilder.append(content)
-                                }
-
-                                val toolCalls = delta.optJSONArray("tool_calls")
-                                if (toolCalls != null && toolCalls.length() > 0) {
-                                    val tc = toolCalls.getJSONObject(0)
-                                    val func = tc.optJSONObject("function")
-                                    if (func != null && func.has("arguments")) {
-                                        val arguments = func.getString("arguments")
-                                        functionArguments.append(arguments)
-                                        // Tool arguments stream in as their own chunks; count them too so
-                                        // the counter keeps moving while the model writes the JSON.
+                        try {
+                            val jsonChunk = JSONObject(dataStr)
+                            val choices = jsonChunk.optJSONArray("choices")
+                            if (choices != null && choices.length() > 0) {
+                                val delta = choices.getJSONObject(0).optJSONObject("delta")
+                                if (delta != null) {
+                                    val reasoning = delta.optString("reasoning_content", "")
+                                    if (reasoning.isNotEmpty()) {
                                         markFirstToken()
-                                        onOutputDelta(arguments)
+                                        onReasoningDelta(reasoning)
+                                        reasoningBuilder.append(reasoning)
+                                    }
+
+                                    val content = delta.optString("content", "")
+                                    if (content.isNotEmpty()) {
+                                        markFirstToken()
+                                        onOutputDelta(content)
+                                        contentBuilder.append(content)
+                                    }
+
+                                    val toolCalls = delta.optJSONArray("tool_calls")
+                                    if (toolCalls != null && toolCalls.length() > 0) {
+                                        val tc = toolCalls.getJSONObject(0)
+                                        val func = tc.optJSONObject("function")
+                                        if (func != null && func.has("arguments")) {
+                                            val arguments = func.getString("arguments")
+                                            functionArguments.append(arguments)
+                                            // Tool arguments stream in as their own chunks; count them too so
+                                            // the counter keeps moving while the model writes the JSON.
+                                            markFirstToken()
+                                            onOutputDelta(arguments)
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        // With stream_options.include_usage the server reports token usage once, on the
-                        // last chunk of the stream. Log the whole object for cost/debug inspection.
-                        val usage = jsonChunk.optJSONObject("usage")
-                        if (usage != null) {
-                            AppLog.i("$tag/OpenAIUsage", usage.toString())
-                            reportedUsage = parseUsage(usage)
+                            // With stream_options.include_usage the server reports token usage once, on the
+                            // last chunk of the stream. Log the whole object for cost/debug inspection.
+                            val usage = jsonChunk.optJSONObject("usage")
+                            if (usage != null) {
+                                AppLog.i("$tag/OpenAIUsage", usage.toString())
+                                reportedUsage = parseUsage(usage)
+                            }
+                        } catch (e: Exception) {
                         }
-                    } catch (e: Exception) {
                     }
-                }
 
-                if (reasoningBuilder.isNotEmpty()) {
-                    AppLog.i("$tag/OpenAIReasoning", reasoningBuilder.toString())
-                }
+                    if (reasoningBuilder.isNotEmpty()) {
+                        AppLog.i("$tag/OpenAIReasoning", reasoningBuilder.toString())
+                    }
 
-                val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
-                AppLog.d("$tag/ResponseBody") { "\u2190 Assembled final JSON:\n$finalJson" }
-                if (finalJson.isEmpty()) throw Exception("No valid tool calls or content found in $tag response")
+                    val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
+                    AppLog.d("$tag/ResponseBody") { "\u2190 Assembled final JSON:\n$finalJson" }
+                    if (finalJson.isEmpty()) throw Exception("No valid tool calls or content found in $tag response")
+                    onStats(
+                        RequestStats(
+                            kind = kind,
+                            state = RequestState.Success,
+                            model = connection.model,
+                            usage = reportedUsage,
+                            startedAtMillis = startedAtMillis,
+                            ttftMillis = ttftMillis,
+                            elapsedMillis = SystemClock.elapsedRealtime() - startedAt,
+                        ),
+                    )
+                    finalJson
+                }
+            } catch (e: Exception) {
                 onStats(
-                    RequestStats(
+                    failedStats(
                         kind = kind,
                         model = connection.model,
                         usage = reportedUsage,
                         ttftMillis = ttftMillis,
-                        elapsedMillis = SystemClock.elapsedRealtime() - startedAt,
+                        startedAtMillis = startedAtMillis,
+                        startedAt = startedAt,
                     ),
                 )
-                finalJson
+                throw e
             }
         }
 

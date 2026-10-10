@@ -11,7 +11,6 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.Transaction
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
@@ -41,7 +40,6 @@ data class Translation(
 data class InferenceRound(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val translationId: Long,
-    val createdAt: Long,
     /**
      * Name of the TransitionReason that started this round. Text rather than the enum: Room's
      * built-in converter throws on a name it no longer knows, so renaming a constant would make
@@ -65,8 +63,10 @@ data class InferenceRound(
 data class InferenceRequest(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val roundId: Long,
+    val createdAt: Long,
     /** Name of the RequestKind, text for the same reason as [InferenceRound.reason]. */
     val kind: String,
+    val state: String,
     val model: String,
     val thinkingEffort: String,
     val inputTokens: Int,
@@ -77,9 +77,10 @@ data class InferenceRequest(
     val elapsedMillis: Long,
 )
 
-/** The sums of everything recorded, each at its own level: translations, rounds, requests, then tokens. */
+/** Counts cover every attempt; the token and time sums cover the successful requests only. */
 data class StatsTotals(
     val translations: Long,
+    val successfulRounds: Long,
     val rounds: Long,
     val requests: Long,
     val recordedWordCount: Long,
@@ -92,7 +93,7 @@ data class StatsTotals(
     val elapsedMillis: Long,
 )
 
-/** One day of the activity grid: translations started that day. [day] is local, "YYYY-MM-DD". */
+/** One day of the activity grid: translations that produced a result that day. [day] is local, "YYYY-MM-DD". */
 data class DailyRuns(
     val day: String,
     val runs: Int,
@@ -108,16 +109,6 @@ data class KindCount(
 interface StatsDao {
     @Insert
     suspend fun insertTranslation(translation: Translation): Long
-
-    @Transaction
-    suspend fun insertRound(
-        round: InferenceRound,
-        requests: List<InferenceRequest>,
-    ): Long {
-        val roundId = insertRoundRow(round)
-        insertRequests(requests.map { it.copy(roundId = roundId) })
-        return roundId
-    }
 
     @Insert
     suspend fun insertRoundRow(round: InferenceRound): Long
@@ -135,38 +126,45 @@ interface StatsDao {
     @Query(
         """
         SELECT (SELECT COUNT(*) FROM translation) AS translations,
+               (SELECT COUNT(*) FROM inference_round r
+                 WHERE NOT EXISTS (SELECT 1 FROM inference_request q
+                                    WHERE q.roundId = r.id AND q.state <> :success)) AS successfulRounds,
                (SELECT COUNT(*) FROM inference_round) AS rounds,
                (SELECT COUNT(*) FROM inference_request) AS requests,
                (SELECT COALESCE(SUM(recordedWordCount), 0) FROM translation) AS recordedWordCount,
                (SELECT COALESCE(SUM(recordedLoanwordCount), 0) FROM translation) AS recordedLoanwordCount,
-               (SELECT COALESCE(SUM(inputTokens), 0) FROM inference_request) AS inputTokens,
-               (SELECT COALESCE(SUM(cachedInputTokens), 0) FROM inference_request) AS cachedInputTokens,
-               (SELECT COALESCE(SUM(outputTokens), 0) FROM inference_request) AS outputTokens,
-               (SELECT COALESCE(SUM(reasoningTokens), 0) FROM inference_request) AS reasoningTokens,
-               (SELECT COALESCE(SUM(ttftMillis), 0) FROM inference_request) AS totalTtftMillis,
-               (SELECT COALESCE(SUM(elapsedMillis), 0) FROM inference_request) AS elapsedMillis
+               (SELECT COALESCE(SUM(inputTokens), 0) FROM inference_request WHERE state = :success) AS inputTokens,
+               (SELECT COALESCE(SUM(cachedInputTokens), 0) FROM inference_request WHERE state = :success) AS cachedInputTokens,
+               (SELECT COALESCE(SUM(outputTokens), 0) FROM inference_request WHERE state = :success) AS outputTokens,
+               (SELECT COALESCE(SUM(reasoningTokens), 0) FROM inference_request WHERE state = :success) AS reasoningTokens,
+               (SELECT COALESCE(SUM(ttftMillis), 0) FROM inference_request WHERE state = :success) AS totalTtftMillis,
+               (SELECT COALESCE(SUM(elapsedMillis), 0) FROM inference_request WHERE state = :success) AS elapsedMillis
         """,
     )
-    fun totals(): Flow<StatsTotals?>
+    fun totals(success: String): Flow<StatsTotals?>
 
     @Query("SELECT kind, COUNT(*) AS count FROM inference_request GROUP BY kind")
     fun countsByKind(): Flow<List<KindCount>>
 
     @Query(
         """
-        SELECT DATE(createdAt / 1000, 'unixepoch', 'localtime') AS day, COUNT(*) AS runs
-        FROM translation
+        SELECT DATE(t.createdAt / 1000, 'unixepoch', 'localtime') AS day, COUNT(*) AS runs
+        FROM translation t
+        WHERE EXISTS (SELECT 1 FROM inference_round r
+                       WHERE r.translationId = t.id
+                         AND NOT EXISTS (SELECT 1 FROM inference_request q
+                                          WHERE q.roundId = r.id AND q.state <> :success))
         GROUP BY day
         """,
     )
-    fun dailyRuns(): Flow<List<DailyRuns>>
+    fun dailyRuns(success: String): Flow<List<DailyRuns>>
 }
 
 /**
  * Statistics live in their own database: they never join against the vocabulary tables, so the two
  * schemas can move independently.
  */
-@Database(entities = [Translation::class, InferenceRound::class, InferenceRequest::class], version = 3, exportSchema = false)
+@Database(entities = [Translation::class, InferenceRound::class, InferenceRequest::class], version = 6, exportSchema = false)
 abstract class StatsDatabase : RoomDatabase() {
     abstract fun statsDao(): StatsDao
 
@@ -225,6 +223,73 @@ abstract class StatsDatabase : RoomDatabase() {
                 }
             }
 
+        /** Adds the request timestamp; rows already recorded inherit the time of their round. */
+        private val Migration3To4 =
+            object : Migration(3, 4) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `inference_request_new` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`roundId` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `kind` TEXT NOT NULL, " +
+                            "`model` TEXT NOT NULL, `thinkingEffort` TEXT NOT NULL, `inputTokens` INTEGER NOT NULL, " +
+                            "`cachedInputTokens` INTEGER NOT NULL, `outputTokens` INTEGER NOT NULL, " +
+                            "`reasoningTokens` INTEGER NOT NULL, `ttftMillis` INTEGER NOT NULL, " +
+                            "`elapsedMillis` INTEGER NOT NULL, " +
+                            "FOREIGN KEY(`roundId`) REFERENCES `inference_round`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+                    )
+                    db.execSQL(
+                        "INSERT INTO `inference_request_new` (`id`, `roundId`, `createdAt`, `kind`, `model`, `thinkingEffort`, " +
+                            "`inputTokens`, `cachedInputTokens`, `outputTokens`, `reasoningTokens`, `ttftMillis`, `elapsedMillis`) " +
+                            "SELECT r.`id`, r.`roundId`, " +
+                            "(SELECT w.`createdAt` FROM `inference_round` w WHERE w.`id` = r.`roundId`), " +
+                            "r.`kind`, r.`model`, r.`thinkingEffort`, r.`inputTokens`, r.`cachedInputTokens`, " +
+                            "r.`outputTokens`, r.`reasoningTokens`, r.`ttftMillis`, r.`elapsedMillis` " +
+                            "FROM `inference_request` r",
+                    )
+                    db.execSQL("DROP TABLE `inference_request`")
+                    db.execSQL("ALTER TABLE `inference_request_new` RENAME TO `inference_request`")
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_inference_request_roundId` ON `inference_request` (`roundId`)",
+                    )
+                }
+            }
+
+        /** Adds the request outcome; rows written before this column existed were all successes. */
+        private val Migration4To5 =
+            object : Migration(4, 5) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `inference_request_new` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`roundId` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `kind` TEXT NOT NULL, " +
+                            "`state` TEXT NOT NULL, `model` TEXT NOT NULL, `thinkingEffort` TEXT NOT NULL, " +
+                            "`inputTokens` INTEGER NOT NULL, `cachedInputTokens` INTEGER NOT NULL, " +
+                            "`outputTokens` INTEGER NOT NULL, `reasoningTokens` INTEGER NOT NULL, " +
+                            "`ttftMillis` INTEGER NOT NULL, `elapsedMillis` INTEGER NOT NULL, " +
+                            "FOREIGN KEY(`roundId`) REFERENCES `inference_round`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+                    )
+                    db.execSQL(
+                        "INSERT INTO `inference_request_new` (`id`, `roundId`, `createdAt`, `kind`, `state`, `model`, " +
+                            "`thinkingEffort`, `inputTokens`, `cachedInputTokens`, `outputTokens`, `reasoningTokens`, " +
+                            "`ttftMillis`, `elapsedMillis`) " +
+                            "SELECT `id`, `roundId`, `createdAt`, `kind`, 'Success', `model`, `thinkingEffort`, " +
+                            "`inputTokens`, `cachedInputTokens`, `outputTokens`, `reasoningTokens`, `ttftMillis`, " +
+                            "`elapsedMillis` FROM `inference_request`",
+                    )
+                    db.execSQL("DROP TABLE `inference_request`")
+                    db.execSQL("ALTER TABLE `inference_request_new` RENAME TO `inference_request`")
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_inference_request_roundId` ON `inference_request` (`roundId`)",
+                    )
+                }
+            }
+
+        /** Round time follows from its requests. Dropped in place: rebuilding the table would cascade them away. */
+        private val Migration5To6 =
+            object : Migration(5, 6) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE `inference_round` DROP COLUMN `createdAt`")
+                }
+            }
+
         @Volatile
         private var instance: StatsDatabase? = null
 
@@ -235,7 +300,7 @@ abstract class StatsDatabase : RoomDatabase() {
                         context.applicationContext,
                         StatsDatabase::class.java,
                         "stats.db",
-                    ).addMigrations(Migration1To2, Migration2To3)
+                    ).addMigrations(Migration1To2, Migration2To3, Migration3To4, Migration4To5, Migration5To6)
                     .build()
                     .also { instance = it }
             }

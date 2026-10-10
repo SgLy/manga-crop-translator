@@ -60,10 +60,18 @@ enum class RequestKind {
     Translate,
 }
 
+enum class RequestState {
+    Success,
+    Error,
+    Cancel,
+}
+
 data class RequestStats(
     val kind: RequestKind,
+    val state: RequestState,
     val model: String,
     val usage: TokenUsage,
+    val startedAtMillis: Long,
     val ttftMillis: Long,
     val elapsedMillis: Long,
 )
