@@ -61,7 +61,7 @@ data class Transition(
 data class LastTranslation(
     val ocr: OcrResult,
     val translation: TranslationResult,
-    val runStats: RequestStats?,
+    val requests: List<RequestStats>,
 )
 
 /** Thinking strength a model can be asked for, weakest first. */
@@ -96,8 +96,8 @@ object TranslatorState {
     val reasoning: StateFlow<String> = _reasoning.asStateFlow()
 
     val streamTape = StreamTape()
-    private val _runStats = MutableStateFlow<RequestStats?>(null)
-    val runStats: StateFlow<RequestStats?> = _runStats.asStateFlow()
+    private val _runRequests = MutableStateFlow<List<RequestStats>>(emptyList())
+    val runRequests: StateFlow<List<RequestStats>> = _runRequests.asStateFlow()
 
     private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
     val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
@@ -130,13 +130,6 @@ object TranslatorState {
 
     /** Stats row of the translation on screen, so 「记一下」 can record what it saved. */
     var translationId: Long? = null
-
-    var roundVisionRequests = 0
-        private set
-
-    /** Translation requests the round in flight has made. */
-    var roundParseRequests = 0
-        private set
 
     /** The result phase a logs screen was opened from, so closing it returns there. */
     var phaseBeforeLogs: AppPhase? = null
@@ -186,15 +179,7 @@ object TranslatorState {
 
     /** Called once per request with what that request cost. */
     fun onStats(stats: RequestStats) {
-        _runStats.value = _runStats.value?.plus(stats) ?: stats
-    }
-
-    fun onVisionRequest() {
-        roundVisionRequests++
-    }
-
-    fun onParseRequest() {
-        roundParseRequests++
+        _runRequests.value += stats
     }
 
     private fun resetStreamProgress() {
@@ -204,9 +189,7 @@ object TranslatorState {
     }
 
     private fun resetRunStats() {
-        _runStats.value = null
-        roundVisionRequests = 0
-        roundParseRequests = 0
+        _runRequests.value = emptyList()
     }
 
     /** The single entry point for all state transitions. */
@@ -227,7 +210,7 @@ object TranslatorState {
                 lastTranslation?.let {
                     _ocrResult.value = it.ocr
                     _translationResult.value = it.translation
-                    _runStats.value = it.runStats
+                    _runRequests.value = it.requests
                 }
                 _errorText.value = ""
             }
@@ -244,7 +227,7 @@ object TranslatorState {
                 val ocr = _ocrResult.value
                 val translation = _translationResult.value
                 if (ocr != null && translation != null) {
-                    lastTranslation = LastTranslation(ocr, translation, _runStats.value)
+                    lastTranslation = LastTranslation(ocr, translation, _runRequests.value)
                 }
             }
 

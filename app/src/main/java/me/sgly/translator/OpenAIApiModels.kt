@@ -55,25 +55,18 @@ data class TokenUsage(
         )
 }
 
-/** [ttfts] holds one entry per request, [elapsedMillis] their total duration. */
+enum class RequestKind {
+    Vision,
+    Translate,
+}
+
 data class RequestStats(
+    val kind: RequestKind,
     val model: String,
     val usage: TokenUsage,
-    val ttfts: List<Long>,
+    val ttftMillis: Long,
     val elapsedMillis: Long,
-) {
-    val generationMillis: Long get() = (elapsedMillis - ttfts.sum()).coerceAtLeast(1)
-
-    val outputPerSecond: Int get() = (usage.output * 1000L / generationMillis).toInt()
-
-    operator fun plus(other: RequestStats): RequestStats =
-        RequestStats(
-            model = other.model,
-            usage = usage + other.usage,
-            ttfts = ttfts + other.ttfts,
-            elapsedMillis = elapsedMillis + other.elapsedMillis,
-        )
-}
+)
 
 @Serializable
 data class OpenAITool(

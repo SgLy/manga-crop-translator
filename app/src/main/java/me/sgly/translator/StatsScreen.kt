@@ -60,9 +60,12 @@ fun StatsScreen() {
     val context = LocalContext.current
     val dao = remember { StatsDatabase.get(context).statsDao() }
     val totals by remember { dao.totals() }.collectAsState(initial = null)
+    val counts by remember { dao.countsByKind() }.collectAsState(initial = emptyList())
     val daily by remember { dao.dailyRuns() }.collectAsState(initial = emptyList())
 
     val stats = totals ?: return
+    val visionCount = counts.firstOrNull { it.kind == RequestKind.Vision.name }?.count ?: 0L
+    val translateCount = counts.firstOrNull { it.kind == RequestKind.Translate.name }?.count ?: 0L
     Column(
         modifier =
             Modifier
@@ -93,8 +96,8 @@ fun StatsScreen() {
                     modifier = Modifier.weight(1f),
                     notes =
                         listOf(
-                            "${stringResource(R.string.stats_vision)} ${compact(stats.visionRequests)}",
-                            "${stringResource(R.string.stats_parse)} ${compact(stats.parseRequests)}",
+                            "${stringResource(R.string.stats_vision)} ${compact(visionCount)}",
+                            "${stringResource(R.string.stats_parse)} ${compact(translateCount)}",
                         ),
                 )
                 MetricCard(R.string.stats_speed, "${tokensPerSecond(stats)} t/s", Modifier.weight(1f))

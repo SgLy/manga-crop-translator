@@ -62,7 +62,7 @@ import java.util.Locale
 fun ResultSheet(phase: AppPhase) {
     val ocrResult by TranslatorState.ocrResult.collectAsState()
     val translationResult by TranslatorState.translationResult.collectAsState()
-    val runStats by TranslatorState.runStats.collectAsState()
+    val runRequests by TranslatorState.runRequests.collectAsState()
 
     val cards =
         remember(translationResult) {
@@ -73,7 +73,7 @@ fun ResultSheet(phase: AppPhase) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val showTokenUsage = remember { SettingsManager(context).showTokenUsage }
-    val stats = if (showTokenUsage) runStats else null
+    val requests = if (showTokenUsage) runRequests else emptyList()
 
     Column(
         modifier =
@@ -97,13 +97,13 @@ fun ResultSheet(phase: AppPhase) {
             }
         }
 
-        if (stats != null || cards.isNotEmpty()) {
+        if (requests.isNotEmpty() || cards.isNotEmpty()) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 48.dp),
             ) {
-                if (stats != null) {
-                    UsageStats(stats)
+                if (requests.isNotEmpty()) {
+                    UsageStats(requests)
                 }
                 if (cards.isNotEmpty()) {
                     CardStrip(
@@ -150,7 +150,10 @@ fun ResultSheet(phase: AppPhase) {
 }
 
 @Composable
-private fun UsageStats(stats: RequestStats) {
+private fun UsageStats(requests: List<RequestStats>) {
+    val usage = requests.map { it.usage }.reduce(TokenUsage::plus)
+    val elapsedMillis = requests.sumOf { it.elapsedMillis }
+    val generationMillis = (elapsedMillis - requests.sumOf { it.ttftMillis }).coerceAtLeast(1)
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -160,23 +163,23 @@ private fun UsageStats(stats: RequestStats) {
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TokenCount(R.drawable.ic_arrow_upward, R.string.cd_token_input, stats.usage.freshInput.toString())
+                TokenCount(R.drawable.ic_arrow_upward, R.string.cd_token_input, usage.freshInput.toString())
                 TokenValue("+")
-                TokenCount(R.drawable.ic_cached, R.string.cd_token_cached, stats.usage.cached.toString())
+                TokenCount(R.drawable.ic_cached, R.string.cd_token_cached, usage.cached.toString())
             }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TokenCount(R.drawable.ic_arrow_downward, R.string.cd_token_output, stats.usage.freshOutput.toString())
+                TokenCount(R.drawable.ic_arrow_downward, R.string.cd_token_output, usage.freshOutput.toString())
                 TokenValue("+")
-                TokenCount(R.drawable.ic_psychology, R.string.cd_token_reasoning, stats.usage.reasoning.toString())
+                TokenCount(R.drawable.ic_psychology, R.string.cd_token_reasoning, usage.reasoning.toString())
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TokenCount(R.drawable.ic_bolt, R.string.cd_ttft, stats.ttfts.joinToString(" / ") { formatSeconds(it) })
-            TokenCount(R.drawable.ic_schedule, R.string.cd_elapsed, formatSeconds(stats.elapsedMillis, 1))
-            TokenCount(R.drawable.ic_speed, R.string.cd_token_rate, "${stats.outputPerSecond} t/s")
+            TokenCount(R.drawable.ic_bolt, R.string.cd_ttft, requests.joinToString(" / ") { formatSeconds(it.ttftMillis) })
+            TokenCount(R.drawable.ic_schedule, R.string.cd_elapsed, formatSeconds(elapsedMillis, 1))
+            TokenCount(R.drawable.ic_speed, R.string.cd_token_rate, "${usage.output * 1000L / generationMillis} t/s")
         }
     }
 }

@@ -18,6 +18,7 @@
 .cxx
 plan.md
 DESIGN.md
+backup/
 node_modules
 quick-test/crop.png
 quick-test/ocr-result.json

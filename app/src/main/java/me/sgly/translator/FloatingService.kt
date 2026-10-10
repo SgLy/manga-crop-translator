@@ -150,10 +150,7 @@ class FloatingService :
                                     TranslatorState.currentThinkingEffort(),
                                     onOutputDelta = { TranslatorState.onOutputDelta(it) },
                                     onReasoningDelta = { TranslatorState.onReasoningDelta(it) },
-                                    onStats = {
-                                        TranslatorState.onStats(it)
-                                        TranslatorState.onVisionRequest()
-                                    },
+                                    onStats = TranslatorState::onStats,
                                 )
                             // The request may have finished after the run was cancelled.
                             currentCoroutineContext().ensureActive()
@@ -184,10 +181,7 @@ class FloatingService :
                                     TranslatorState.currentThinkingEffort(),
                                     onOutputDelta = { TranslatorState.onOutputDelta(it) },
                                     onReasoningDelta = { TranslatorState.onReasoningDelta(it) },
-                                    onStats = {
-                                        TranslatorState.onStats(it)
-                                        TranslatorState.onParseRequest()
-                                    },
+                                    onStats = TranslatorState::onStats,
                                 )
                             currentCoroutineContext().ensureActive()
                             recordRound()
@@ -448,8 +442,9 @@ class FloatingService :
 
     /** A stats failure must never surface, so it is swallowed. */
     private suspend fun recordRound() {
-        val stats = TranslatorState.runStats.value ?: return
+        val requests = TranslatorState.runRequests.value
         val reason = TranslatorState.runReason ?: return
+        if (requests.isEmpty()) return
         try {
             val dao = StatsDatabase.get(this).statsDao()
             val now = System.currentTimeMillis()
@@ -458,22 +453,23 @@ class FloatingService :
                     ?: dao.insertTranslation(Translation(createdAt = now)).also {
                         TranslatorState.translationId = it
                     }
+            val effort = TranslatorState.currentThinkingEffort()
             dao.insertRound(
-                InferenceRound(
-                    translationId = translationId,
-                    createdAt = now,
-                    reason = reason.name,
-                    model = stats.model,
-                    thinkingEffort = TranslatorState.currentThinkingEffort(),
-                    visionRequests = TranslatorState.roundVisionRequests,
-                    parseRequests = TranslatorState.roundParseRequests,
-                    inputTokens = stats.usage.input,
-                    cachedInputTokens = stats.usage.cached,
-                    outputTokens = stats.usage.output,
-                    reasoningTokens = stats.usage.reasoning,
-                    totalTtftMillis = stats.ttfts.sum(),
-                    elapsedMillis = stats.elapsedMillis,
-                ),
+                InferenceRound(translationId = translationId, createdAt = now, reason = reason.name),
+                requests.map {
+                    InferenceRequest(
+                        roundId = 0,
+                        kind = it.kind.name,
+                        model = it.model,
+                        thinkingEffort = effort,
+                        inputTokens = it.usage.input,
+                        cachedInputTokens = it.usage.cached,
+                        outputTokens = it.usage.output,
+                        reasoningTokens = it.usage.reasoning,
+                        ttftMillis = it.ttftMillis,
+                        elapsedMillis = it.elapsedMillis,
+                    )
+                },
             )
         } catch (e: Exception) {
             AppLog.w("Stats", "round not recorded: ${e.message}")

@@ -11,6 +11,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
@@ -25,12 +26,6 @@ data class Translation(
     val recordedLoanwordCount: Int = 0,
 )
 
-/**
- * One round of inference: reading the image, then translating what it found. A retry that reuses
- * one of the two does only the other, and a 「再想想」 starts another round of the same translation.
- *
- * The vocabulary tables are never read for stats, so deleting a word does not rewrite history.
- */
 @Entity(
     tableName = "inference_round",
     foreignKeys = [
@@ -53,24 +48,40 @@ data class InferenceRound(
      * every round recorded before the rename unreadable.
      */
     val reason: String,
+)
+
+@Entity(
+    tableName = "inference_request",
+    foreignKeys = [
+        ForeignKey(
+            entity = InferenceRound::class,
+            parentColumns = ["id"],
+            childColumns = ["roundId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("roundId")],
+)
+data class InferenceRequest(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val roundId: Long,
+    /** Name of the RequestKind, text for the same reason as [InferenceRound.reason]. */
+    val kind: String,
     val model: String,
     val thinkingEffort: String,
-    val visionRequests: Int,
-    val parseRequests: Int,
     val inputTokens: Int,
     val cachedInputTokens: Int,
     val outputTokens: Int,
     val reasoningTokens: Int,
-    val totalTtftMillis: Long,
+    val ttftMillis: Long,
     val elapsedMillis: Long,
 )
 
-/** The sums of everything recorded, each at its own level: translations, rounds, then tokens. */
+/** The sums of everything recorded, each at its own level: translations, rounds, requests, then tokens. */
 data class StatsTotals(
     val translations: Long,
     val rounds: Long,
-    val visionRequests: Long,
-    val parseRequests: Long,
+    val requests: Long,
     val recordedWordCount: Long,
     val recordedLoanwordCount: Long,
     val inputTokens: Long,
@@ -79,9 +90,7 @@ data class StatsTotals(
     val reasoningTokens: Long,
     val totalTtftMillis: Long,
     val elapsedMillis: Long,
-) {
-    val requests: Long get() = visionRequests + parseRequests
-}
+)
 
 /** One day of the activity grid: translations started that day. [day] is local, "YYYY-MM-DD". */
 data class DailyRuns(
@@ -89,13 +98,32 @@ data class DailyRuns(
     val runs: Int,
 )
 
+/** Requests of one [RequestKind]. [kind] is the enum's name. */
+data class KindCount(
+    val kind: String,
+    val count: Long,
+)
+
 @Dao
 interface StatsDao {
     @Insert
     suspend fun insertTranslation(translation: Translation): Long
 
+    @Transaction
+    suspend fun insertRound(
+        round: InferenceRound,
+        requests: List<InferenceRequest>,
+    ): Long {
+        val roundId = insertRoundRow(round)
+        insertRequests(requests.map { it.copy(roundId = roundId) })
+        return roundId
+    }
+
     @Insert
-    suspend fun insertRound(round: InferenceRound): Long
+    suspend fun insertRoundRow(round: InferenceRound): Long
+
+    @Insert
+    suspend fun insertRequests(requests: List<InferenceRequest>)
 
     @Query("UPDATE translation SET recordedWordCount = :words, recordedLoanwordCount = :loanwords WHERE id = :translationId")
     suspend fun setRecordedWords(
@@ -108,19 +136,21 @@ interface StatsDao {
         """
         SELECT (SELECT COUNT(*) FROM translation) AS translations,
                (SELECT COUNT(*) FROM inference_round) AS rounds,
-               (SELECT COALESCE(SUM(visionRequests), 0) FROM inference_round) AS visionRequests,
-               (SELECT COALESCE(SUM(parseRequests), 0) FROM inference_round) AS parseRequests,
+               (SELECT COUNT(*) FROM inference_request) AS requests,
                (SELECT COALESCE(SUM(recordedWordCount), 0) FROM translation) AS recordedWordCount,
                (SELECT COALESCE(SUM(recordedLoanwordCount), 0) FROM translation) AS recordedLoanwordCount,
-               (SELECT COALESCE(SUM(inputTokens), 0) FROM inference_round) AS inputTokens,
-               (SELECT COALESCE(SUM(cachedInputTokens), 0) FROM inference_round) AS cachedInputTokens,
-               (SELECT COALESCE(SUM(outputTokens), 0) FROM inference_round) AS outputTokens,
-               (SELECT COALESCE(SUM(reasoningTokens), 0) FROM inference_round) AS reasoningTokens,
-               (SELECT COALESCE(SUM(totalTtftMillis), 0) FROM inference_round) AS totalTtftMillis,
-               (SELECT COALESCE(SUM(elapsedMillis), 0) FROM inference_round) AS elapsedMillis
+               (SELECT COALESCE(SUM(inputTokens), 0) FROM inference_request) AS inputTokens,
+               (SELECT COALESCE(SUM(cachedInputTokens), 0) FROM inference_request) AS cachedInputTokens,
+               (SELECT COALESCE(SUM(outputTokens), 0) FROM inference_request) AS outputTokens,
+               (SELECT COALESCE(SUM(reasoningTokens), 0) FROM inference_request) AS reasoningTokens,
+               (SELECT COALESCE(SUM(ttftMillis), 0) FROM inference_request) AS totalTtftMillis,
+               (SELECT COALESCE(SUM(elapsedMillis), 0) FROM inference_request) AS elapsedMillis
         """,
     )
     fun totals(): Flow<StatsTotals?>
+
+    @Query("SELECT kind, COUNT(*) AS count FROM inference_request GROUP BY kind")
+    fun countsByKind(): Flow<List<KindCount>>
 
     @Query(
         """
@@ -136,7 +166,7 @@ interface StatsDao {
  * Statistics live in their own database: they never join against the vocabulary tables, so the two
  * schemas can move independently.
  */
-@Database(entities = [Translation::class, InferenceRound::class], version = 2, exportSchema = false)
+@Database(entities = [Translation::class, InferenceRound::class, InferenceRequest::class], version = 3, exportSchema = false)
 abstract class StatsDatabase : RoomDatabase() {
     abstract fun statsDao(): StatsDao
 
@@ -167,6 +197,34 @@ abstract class StatsDatabase : RoomDatabase() {
                 }
             }
 
+        /** Rounds lose their round-level columns; the rows that carried them go with the dropped table. */
+        private val Migration2To3 =
+            object : Migration(2, 3) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("DROP TABLE IF EXISTS inference_round")
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `inference_round` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`translationId` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `reason` TEXT NOT NULL, " +
+                            "FOREIGN KEY(`translationId`) REFERENCES `translation`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_inference_round_translationId` ON `inference_round` (`translationId`)",
+                    )
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `inference_request` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`roundId` INTEGER NOT NULL, `kind` TEXT NOT NULL, `model` TEXT NOT NULL, " +
+                            "`thinkingEffort` TEXT NOT NULL, `inputTokens` INTEGER NOT NULL, " +
+                            "`cachedInputTokens` INTEGER NOT NULL, `outputTokens` INTEGER NOT NULL, " +
+                            "`reasoningTokens` INTEGER NOT NULL, `ttftMillis` INTEGER NOT NULL, " +
+                            "`elapsedMillis` INTEGER NOT NULL, " +
+                            "FOREIGN KEY(`roundId`) REFERENCES `inference_round`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_inference_request_roundId` ON `inference_request` (`roundId`)",
+                    )
+                }
+            }
+
         @Volatile
         private var instance: StatsDatabase? = null
 
@@ -177,7 +235,7 @@ abstract class StatsDatabase : RoomDatabase() {
                         context.applicationContext,
                         StatsDatabase::class.java,
                         "stats.db",
-                    ).addMigrations(Migration1To2)
+                    ).addMigrations(Migration1To2, Migration2To3)
                     .build()
                     .also { instance = it }
             }

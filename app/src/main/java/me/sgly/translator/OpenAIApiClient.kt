@@ -93,6 +93,7 @@ class OpenAIApiClient(
                 chatWithTool(
                     tag = tag,
                     connection = connection,
+                    kind = RequestKind.Vision,
                     thinkingEffort = thinkingEffort,
                     systemPrompt = Prompts.VISUAL,
                     userContent = userContent,
@@ -154,6 +155,7 @@ class OpenAIApiClient(
                 chatWithTool(
                     tag = tag,
                     connection = connection,
+                    kind = RequestKind.Translate,
                     thinkingEffort = thinkingEffort,
                     systemPrompt = Prompts.TRANSLATE,
                     userContent = JsonPrimitive(japaneseText),
@@ -184,6 +186,7 @@ class OpenAIApiClient(
     private suspend fun chatWithTool(
         tag: String,
         connection: ModelConnection,
+        kind: RequestKind,
         thinkingEffort: String,
         systemPrompt: String,
         userContent: JsonElement,
@@ -304,9 +307,10 @@ class OpenAIApiClient(
                 if (finalJson.isEmpty()) throw Exception("No valid tool calls or content found in $tag response")
                 onStats(
                     RequestStats(
+                        kind = kind,
                         model = connection.model,
                         usage = reportedUsage,
-                        ttfts = listOf(ttftMillis),
+                        ttftMillis = ttftMillis,
                         elapsedMillis = SystemClock.elapsedRealtime() - startedAt,
                     ),
                 )
