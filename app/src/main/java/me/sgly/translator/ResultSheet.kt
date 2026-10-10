@@ -58,14 +58,12 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-/** The finished translation: the annotated blocks and the vocabulary strip, with their actions. */
 @Composable
 fun ResultSheet(phase: AppPhase) {
     val ocrResult by TranslatorState.ocrResult.collectAsState()
     val translationResult by TranslatorState.translationResult.collectAsState()
     val runStats by TranslatorState.runStats.collectAsState()
 
-    // Every card remembers the block it came from, which is how saving recovers its sentence.
     val cards =
         remember(translationResult) {
             translationResult?.let(::wordCards).orEmpty()
@@ -279,7 +277,6 @@ private fun ResultActions(
     }
 }
 
-/** A piece of a source segment: either verbatim text or a vocabulary word to gloss. */
 private sealed interface SourceToken {
     data class Plain(
         val text: String,
@@ -335,10 +332,6 @@ private fun chunkPlainText(text: String): List<String> =
 
 private fun Char.isAsciiWordChar(): Boolean = isLetterOrDigit() && code < 0x80
 
-/**
- * A source word with its gloss underneath, tooltipped with the reading — or, on a loanword, with the
- * etymology, marked by a "+". The whole word is the anchor so it is easy to hit with a thumb.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AnnotatedWord(token: SourceToken.Annotated) {
@@ -418,7 +411,7 @@ private data class WordCard(
     val word: TranslationWord,
 )
 
-/** The cards of a result, ranked by difficulty — the strip's order, and the indices selection uses. */
+/** The cards of a result, ranked by difficulty. */
 private fun wordCards(result: TranslationResult): List<WordCard> =
     result.results
         .flatMapIndexed { blockIndex, block ->
@@ -438,7 +431,6 @@ private fun ResultBlocks(
                 .heightIn(min = 60.dp),
     ) {
         ocrResult.blocks.forEachIndexed { index, block ->
-            // Japanese original text, with each vocabulary word glossed underneath.
             val columns =
                 translationResult.results
                     .getOrNull(index)
@@ -481,7 +473,6 @@ private fun ResultBlocks(
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
-            // Corresponding Chinese translation
             val translation = translationResult.results.getOrNull(index)?.translation ?: ""
             Text(
                 text = translation,
@@ -489,7 +480,6 @@ private fun ResultBlocks(
                 lineHeight = 19.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            // Divider between blocks (not after the last one)
             if (index < ocrResult.blocks.lastIndex) {
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(
@@ -529,7 +519,7 @@ private fun CardStrip(
     }
 }
 
-/** Records how much of this result was kept. A stats failure must never surface, so it is swallowed. */
+/** A stats failure must never surface, so it is swallowed. */
 private suspend fun recordSavedWords(
     context: Context,
     occurrences: List<VocabularyOccurrence>,
@@ -547,8 +537,8 @@ private suspend fun recordSavedWords(
 }
 
 /**
- * The database rows behind one 「记一下」. A card's sentence is its whole block: that is the unit the
- * model translated, so it is also the unit the reader heard as "this sentence".
+ * The database rows behind one save: a card's sentence is its whole block, which is the unit the
+ * model translated and the unit the reader heard as "this sentence".
  */
 private fun occurrencesFor(
     cards: List<WordCard>,

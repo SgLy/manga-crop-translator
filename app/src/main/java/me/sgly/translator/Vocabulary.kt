@@ -29,7 +29,6 @@ data class VocabularyWord(
     val origin: String,
 )
 
-/** One entry of a [VocabularyWord], in the sentence that produced it. */
 @Entity(
     tableName = "vocabulary_entry",
     foreignKeys = [
@@ -54,8 +53,7 @@ data class VocabularyEntry(
 )
 
 /**
- * Everything one 「记一下」 captures about a word: how it appeared here, what it meant here, and the
- * sentence it came from.
+ * Everything one save captures about a word.
  *
  * Difficulty is deliberately left out: it only ranks words against the other words of a single
  * translation, so once that sentence is gone the number has nothing left to mean.
@@ -70,7 +68,6 @@ data class VocabularyOccurrence(
     val translation: String,
 )
 
-/** One card of the vocabulary list: the headword, the meanings it has carried, and how often it was recorded. */
 data class VocabularySummary(
     val id: Long,
     val lemma: String,
@@ -135,7 +132,7 @@ abstract class VocabularyDao {
         }
     }
 
-    /** Deletes one entry. The headword survives even when this was its last one. */
+    /** The headword survives even when this was its last entry. */
     @Delete
     abstract suspend fun deleteEntry(entry: VocabularyEntry)
 
@@ -170,7 +167,6 @@ abstract class VocabularyDao {
     )
     abstract fun summaries(): Flow<List<VocabularySummary>>
 
-    /** The detail page of one headword, or null if the word is gone. */
     @Transaction
     @Query("SELECT * FROM vocabulary_word WHERE id = :wordId")
     abstract fun wordWithEntries(wordId: Long): Flow<VocabularyWordWithEntries?>

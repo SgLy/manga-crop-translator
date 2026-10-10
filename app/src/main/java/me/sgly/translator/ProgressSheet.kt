@@ -60,10 +60,6 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.exp
 import kotlin.math.floor
 
-/**
- * Shown while a request is running or has failed: the pipeline steps, the error detail, and the
- * model's reasoning once the setting asks for it.
- */
 @Composable
 fun ProgressSheet(phase: AppPhase) {
     val errorText by TranslatorState.errorText.collectAsState()
@@ -147,7 +143,6 @@ private fun ProgressActions(phase: AppPhase) {
 
 private enum class StepUiStatus { Idle, Waiting, Streaming, Done, Error }
 
-/** Shows the newest lines of the model's reasoning in a short window that follows the stream. */
 @Composable
 private fun ReasoningStrip(reasoning: String) {
     val lineHeight = 16.sp
@@ -298,7 +293,6 @@ private fun StepRow(
     ) {
         when (status) {
             StepUiStatus.Waiting -> {
-                // Request sent, no SSE chunk yet: something is happening, we just cannot see it.
                 LoadingIndicator(
                     modifier = Modifier.size(16.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -306,8 +300,6 @@ private fun StepRow(
             }
 
             StepUiStatus.Streaming -> {
-                // First token has landed: the spinner gives way to a pulsing down arrow,
-                // which reads as "output is flowing" rather than "still waiting".
                 val blink by rememberInfiniteTransition(label = "streamingBlink").animateFloat(
                     initialValue = 0.25f,
                     targetValue = 1f,

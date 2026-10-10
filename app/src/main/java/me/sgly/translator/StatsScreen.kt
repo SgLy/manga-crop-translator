@@ -46,7 +46,6 @@ private val CellGap = 3.dp
 private val CardGap = 12.dp
 private val SectionGap = 28.dp
 
-/** Runs in a day that take a cell one step darker. */
 private fun level(runs: Int): Int =
     when {
         runs >= 10 -> 4

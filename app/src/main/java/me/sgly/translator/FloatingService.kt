@@ -104,7 +104,6 @@ class FloatingService :
                 }
         }
 
-        // Orchestration: drive the pipeline based on current phase
         serviceScope.launch {
             TranslatorState.phase.collectLatest { phase ->
                 when (phase) {
@@ -156,7 +155,7 @@ class FloatingService :
                                         TranslatorState.onVisionRequest()
                                     },
                                 )
-                            // The request may have finished after the run was cancelled; a dead run has no state to write.
+                            // The request may have finished after the run was cancelled.
                             currentCoroutineContext().ensureActive()
                             if (result.blocks.isEmpty()) {
                                 TranslatorState.setErrorText(
@@ -290,7 +289,6 @@ class FloatingService :
         val savedX = settingsManager.fabX
         val savedY = settingsManager.fabY
         if (savedX >= 0 && savedY >= 0) {
-            // Restore the last position the user dragged the button to.
             params.x = savedX.coerceIn(0, maxX)
             params.y = savedY.coerceIn(0, maxY)
         } else {
@@ -330,7 +328,6 @@ class FloatingService :
                             val dx = event.rawX - initialTouchX
                             val dy = event.rawY - initialTouchY
                             if (kotlin.math.abs(dx) > 10 || kotlin.math.abs(dy) > 10) {
-                                // Moving means dragging, which is not the long press.
                                 if (!isDragging) v.removeCallbacks(fabLongPress)
                                 isDragging = true
                             }
@@ -345,7 +342,6 @@ class FloatingService :
                         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                             v.removeCallbacks(fabLongPress)
                             if (isDragging) {
-                                // Persist the dragged position so it survives restarts.
                                 settingsManager.fabX = params.x
                                 settingsManager.fabY = params.y
                             } else if (!isFabLongPressed) {
@@ -364,7 +360,6 @@ class FloatingService :
         updateFabVisibility()
     }
 
-    /** Brings the last completed translation back on screen; says so when there is none. */
     private fun onFabLongPressed() {
         if (TranslatorState.lastTranslation == null) {
             Toast.makeText(this, R.string.no_last_result, Toast.LENGTH_SHORT).show()
@@ -376,10 +371,6 @@ class FloatingService :
     private var lastPhase: AppPhase? = null
     private var lastCapturedContentVisible = false
 
-    /**
-     * Adopts a freshly granted lease. A session still running is torn down first, so a re-grant can
-     * never leave the previous lease's display or callback behind.
-     */
     private fun startSession(projection: MediaProjection) {
         endSession()
         val started =
@@ -455,10 +446,7 @@ class FloatingService :
         }
     }
 
-    /**
-     * Records the finished round, opening its translation first if this is the round that produced
-     * one. A stats failure must never surface, so it is swallowed.
-     */
+    /** A stats failure must never surface, so it is swallowed. */
     private suspend fun recordRound() {
         val stats = TranslatorState.runStats.value ?: return
         val reason = TranslatorState.runReason ?: return
@@ -492,10 +480,7 @@ class FloatingService :
         }
     }
 
-    /**
-     * The FAB is only shown when the state machine is idle *and* the captured region is on
-     * screen — with Android 14 app screen sharing that means the shared app is in the foreground.
-     */
+    /** With Android 14 app screen sharing, "on screen" means the shared app is in the foreground. */
     private fun updateFabVisibility() {
         if (!::floatingView.isInitialized) return
         val show = TranslatorState.phase.value == AppPhase.Idle && isCapturedContentVisible()

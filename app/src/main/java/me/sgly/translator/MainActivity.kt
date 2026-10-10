@@ -276,7 +276,6 @@ private fun VocabularyListScreen(summaries: List<VocabularySummary>) {
     }
 }
 
-/** One tile of the vocabulary list: the headword, its meanings, and how often it was recorded. */
 @Composable
 private fun VocabularyCard(
     summary: VocabularySummary,

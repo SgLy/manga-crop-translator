@@ -61,7 +61,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
 
-/** Everything ever recorded about one word, newest entry first. */
 class VocabularyDetailActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -159,7 +158,6 @@ class VocabularyDetailActivity : ComponentActivity() {
     }
 }
 
-/** What a collapsing row should remove once it has finished collapsing. */
 private enum class Deletion { Entry, Word }
 
 /**
@@ -215,7 +213,6 @@ private fun SwipeableEntryRow(
         if (deletion == Deletion.Word) onDeleteWord() else onDelete()
     }
 
-    // The last entry cannot go away on its own, so it stays open and lets the dialog decide.
     LaunchedEffect(dismissState.settledValue) {
         if (dismissState.settledValue != SwipeToDismissBoxValue.EndToStart) return@LaunchedEffect
         if (isOnlyEntry) askingToDeleteWord = true else collapse(Deletion.Entry)
@@ -283,7 +280,6 @@ private fun SwipeableEntryRow(
     }
 }
 
-/** One entry: the meaning it carried here, when it was noted, and the sentence it came from. */
 @Composable
 private fun EntryRow(entry: VocabularyEntry) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -323,7 +319,6 @@ private fun EntryRow(entry: VocabularyEntry) {
     }
 }
 
-/** Marks the word inside the sentence it was taken from, underlined in the app's emphasis colour. */
 private fun sentenceWithSurfaceHighlighted(
     sentence: String,
     surface: String,

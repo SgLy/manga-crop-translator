@@ -43,7 +43,6 @@ class SettingsManager(
         get() = prefs.getBoolean("forwardLogsToLogcat", false)
         set(value) = prefs.edit { putBoolean("forwardLogsToLogcat", value) }
 
-    /** When true, the result sheet shows the model's streamed reasoning in a strip above the actions. */
     var showReasoning: Boolean
         get() = prefs.getBoolean("showReasoning", false)
         set(value) = prefs.edit { putBoolean("showReasoning", value) }

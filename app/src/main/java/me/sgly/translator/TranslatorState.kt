@@ -89,10 +89,6 @@ object TranslatorState {
     private val _sheetOnScreen = MutableStateFlow(false)
     val sheetOnScreen: StateFlow<Boolean> = _sheetOnScreen.asStateFlow()
 
-    /**
-     * Whether the in-flight streaming response has already delivered its first token.
-     * False while we are still waiting for the first SSE chunk, true from that first delta on.
-     */
     private val _firstTokenReceived = MutableStateFlow(false)
     val firstTokenReceived: StateFlow<Boolean> = _firstTokenReceived.asStateFlow()
 
@@ -106,18 +102,15 @@ object TranslatorState {
     private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
     val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
 
-    // Thinking sequence: the levels chosen in settings, walked by index on each ThinkHarder.
     private var thinkingSequence: List<ThinkingLevel> = ThinkingLevel.defaultSequence
     private val _thinkingLevelIndex = MutableStateFlow(0)
     val thinkingLevelIndex: StateFlow<Int> = _thinkingLevelIndex.asStateFlow()
 
-    /** Installs the sequence chosen in settings and resets to its first level. */
     fun setThinkingSequence(sequence: List<ThinkingLevel>) {
         thinkingSequence = sequence.ifEmpty { ThinkingLevel.defaultSequence }
         _thinkingLevelIndex.value = 0
     }
 
-    /** Effort token for the current level, e.g. "high". */
     fun currentThinkingEffort(): String = thinkingSequence.getOrElse(_thinkingLevelIndex.value) { thinkingSequence.last() }.effort
 
     private fun escalateThinking() {
@@ -125,11 +118,9 @@ object TranslatorState {
             (_thinkingLevelIndex.value + 1).coerceAtMost(thinkingSequence.lastIndex)
     }
 
-    // Raw bitmaps: not observed reactively by UI, read directly when needed
     var capturedBitmap: Bitmap? = null
     var croppedBitmap: Bitmap? = null
 
-    /** The last completed translation. Survives a dismiss, so the FAB can hand it back. */
     var lastTranslation: LastTranslation? = null
         private set
 
@@ -187,7 +178,6 @@ object TranslatorState {
         _firstTokenReceived.value = true
     }
 
-    /** Called with every streamed reasoning delta of the in-flight request. */
     fun onReasoningDelta(delta: String) {
         _reasoning.value += delta
         streamTape.append(delta.length)
@@ -207,7 +197,6 @@ object TranslatorState {
         roundParseRequests++
     }
 
-    /** Back to "nothing received yet" — called whenever a new streaming phase starts. */
     private fun resetStreamProgress() {
         _firstTokenReceived.value = false
         _reasoning.value = ""
@@ -220,10 +209,7 @@ object TranslatorState {
         roundParseRequests = 0
     }
 
-    /**
-     * The single entry point for all state transitions.
-     * Applies data-clearing rules appropriate to the reason, then updates phase.
-     */
+    /** The single entry point for all state transitions. */
     fun transition(
         to: AppPhase,
         reason: TransitionReason,
@@ -232,14 +218,12 @@ object TranslatorState {
         AppLog.i("TranslatorState", "$from → $to [$reason]")
         when (reason) {
             TransitionReason.FabClicked -> {
-                // A new capture session starts: reset to the base thinking level
                 _thinkingLevelIndex.value = 0
                 resetRunStats()
                 runReason = reason
             }
 
             TransitionReason.FabLongPressed -> {
-                // Show the previous result again without re-running anything.
                 lastTranslation?.let {
                     _ocrResult.value = it.ocr
                     _translationResult.value = it.translation
@@ -257,7 +241,6 @@ object TranslatorState {
             }
 
             TransitionReason.TranslateSuccess -> {
-                // Keep the finished pair so a later long press can show it again.
                 val ocr = _ocrResult.value
                 val translation = _translationResult.value
                 if (ocr != null && translation != null) {
@@ -266,7 +249,6 @@ object TranslatorState {
             }
 
             TransitionReason.ThinkHarder -> {
-                // Re-run OCR with same crop: clear both results and think harder
                 _ocrResult.value = null
                 _translationResult.value = null
                 _errorText.value = ""
@@ -280,7 +262,6 @@ object TranslatorState {
                 _translationResult.value = null
                 resetRunStats()
                 runReason = reason
-                // OcrError retry re-runs OCR: also clear ocrResult
                 if (from == AppPhase.OcrError) _ocrResult.value = null
                 // TranslateError retry preserves ocrResult (only re-runs TranslateModel)
             }
@@ -316,7 +297,6 @@ object TranslatorState {
 
             else -> {}
         }
-        // Entering a streaming phase means a new request is starting: nothing has arrived yet.
         if (to == AppPhase.Recognizing || to == AppPhase.Parsing) {
             resetStreamProgress()
         }
@@ -324,9 +304,6 @@ object TranslatorState {
         _lastTransition.tryEmit(Transition(from, to, reason))
     }
 
-    /**
-     * Leaves the logs screen if it is open, returning to the result phase it was opened from.
-     */
     fun closeLogsIfOpen() {
         if (_phase.value != AppPhase.ShowingLogs) return
         transition(phaseBeforeLogs ?: AppPhase.Done, TransitionReason.CloseLogs)

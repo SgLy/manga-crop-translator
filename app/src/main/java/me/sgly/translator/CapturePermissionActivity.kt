@@ -7,7 +7,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.net.toUri
 
-/** The permissions a capture run needs. */
 abstract class CapturePermissionActivity : ComponentActivity() {
     private val notificationPermissionLauncher =
         registerForActivityResult(
@@ -44,7 +43,6 @@ abstract class CapturePermissionActivity : ComponentActivity() {
             }
         }
 
-    /** Runs the flow; success starts [FloatingService]. */
     protected fun startCapture() {
         TranslatorState.setThinkingSequence(SettingsManager(this).thinkingSequence)
         stopService(Intent(this, FloatingService::class.java))
@@ -52,7 +50,6 @@ abstract class CapturePermissionActivity : ComponentActivity() {
         notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    /** [started] says whether capture was granted. */
     protected open fun onCaptureDone(started: Boolean) {}
 
     private fun checkOverlayAndStart() {

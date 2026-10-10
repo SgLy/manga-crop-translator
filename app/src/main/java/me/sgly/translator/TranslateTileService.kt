@@ -4,7 +4,6 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.service.quicksettings.TileService
 
-/** The quick settings entry point into the capture flow. */
 class TranslateTileService : TileService() {
     override fun onClick() {
         startActivityAndCollapse(

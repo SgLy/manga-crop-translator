@@ -2,17 +2,6 @@ package me.sgly.translator
 
 import android.util.Log
 
-/**
- * App-wide logging facade.
- *
- * Every line is kept in a fixed-size in-memory ring buffer (shown by [LogsActivity]).
- * When [forwardToLogcat] is on the line is *also* written to logcat; otherwise it only
- * lives in memory.
- *
- * Messages are produced lazily: pass a lambda and it is only evaluated when the line is
- * actually needed (written to logcat, or read for the in-app viewer). This keeps hot paths
- * cheap — e.g. sanitising a huge base64 request body costs nothing until you open the logs.
- */
 object AppLog {
     private const val MAX_ENTRIES = 100
     private const val LOGCAT_CHUNK = 3500
@@ -26,7 +15,6 @@ object AppLog {
         val producer: () -> String,
     )
 
-    /** A fully-resolved log line, ready for display. */
     data class Line(
         val timeMs: Long,
         val level: Level,
@@ -93,12 +81,10 @@ object AppLog {
         producer: () -> String,
     ) {
         if (forwardToLogcat) {
-            // Build once, ship it to logcat, and cache the result for the in-app viewer.
             val message = producer()
             store(Entry(System.currentTimeMillis(), level, tag) { message })
             writeToLogcat(level, tag, message)
         } else {
-            // Defer building the message until the logs are actually viewed.
             store(Entry(System.currentTimeMillis(), level, tag, producer))
         }
     }
@@ -110,13 +96,13 @@ object AppLog {
         }
     }
 
-    /** Oldest → newest, with every lazy message resolved. Call from a background thread. */
+    /** Call from a background thread. */
     fun snapshot(): List<Line> {
         val entries = synchronized(lock) { buffer.toList() }
         return entries.map { Line(it.timeMs, it.level, it.tag, it.producer()) }
     }
 
-    /** Newest first. Resolves producers; call from a background thread. */
+    /** Call from a background thread. */
     fun snapshotNewestFirst(): List<Line> = snapshot().asReversed()
 
     private fun writeToLogcat(

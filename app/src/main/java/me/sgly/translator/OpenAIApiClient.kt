@@ -180,10 +180,7 @@ class OpenAIApiClient(
         return ModelConnection(apiKey, if (base.endsWith("/chat/completions")) base else "$base/chat/completions", model)
     }
 
-    /**
-     * Sends one streaming tool-call chat request and returns the assembled tool arguments. [tag]
-     * names the endpoint in logs and error messages.
-     */
+    /** Returns the assembled tool arguments; [tag] names the endpoint in logs and error messages. */
     private suspend fun chatWithTool(
         tag: String,
         connection: ModelConnection,
@@ -295,7 +292,6 @@ class OpenAIApiClient(
                             reportedUsage = parseUsage(usage)
                         }
                     } catch (e: Exception) {
-                        // Ignore JSON parse errors for incomplete chunks
                     }
                 }
 
@@ -346,7 +342,6 @@ class OpenAIApiClient(
         }
     }
 
-    /** Replaces the base64 image payload with a placeholder so logcat stays readable. */
     private fun sanitizeForLog(json: String): String =
         json.replace(
             Regex("data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+"),
@@ -361,7 +356,7 @@ class OpenAIApiClient(
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val outputStream = ByteArrayOutputStream()
-        // 使用 PNG 无损格式，最高识别精度
+        // PNG is lossless, which is what keeps recognition accurate.
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
         return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
     }
@@ -428,7 +423,6 @@ internal fun buildToolParameters(
     }
 }
 
-/** Recursively replaces `{"$ref": "#/$defs/X"}` with the referenced definition. */
 private fun inlineRefs(
     element: JsonElement,
     defs: JsonObject?,

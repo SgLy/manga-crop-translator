@@ -19,7 +19,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
-/** Hosts the bottom sheet: [ProgressSheet] while a request runs or has failed, [ResultSheet] after. */
 class SheetActivity : ComponentActivity() {
     private var resumeCount by mutableIntStateOf(0)
 

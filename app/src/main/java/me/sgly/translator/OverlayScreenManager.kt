@@ -90,8 +90,8 @@ class OverlayScreenManager(
 
                     setContent {
                         OverlayScreenContent(bitmap = bitmap) { result ->
-                            // 不在这里 hideOverlay：让调用方在 startActivity 之后再 hide，
-                            // 确保 startActivity 时 app 还有可见窗口（Android 10+ 限制）
+                            // Not here: the caller hides the overlay after startActivity, so the app still
+                            // has a visible window then (Android 10+ requires one for the launch to succeed).
                             if (!cont.isCompleted) cont.resume(result)
                         }
                     }
@@ -139,10 +139,9 @@ fun OverlayScreenContent(
 ) {
     var startPoint by remember { mutableStateOf<Offset?>(null) }
     var currentPoint by remember { mutableStateOf<Offset?>(null) }
-    val minCropSize = 80f // 最小有效框选尺寸
+    val minCropSize = 80f
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // 全屏显示图片，作为底层
         Image(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = "Frozen Screen",
@@ -150,12 +149,11 @@ fun OverlayScreenContent(
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
         )
 
-        // 绘制图层：包含暗色半透明遮罩与动态抠出的亮色框选区
         Canvas(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .graphicsLayer { alpha = 0.99f } // 强制离屏渲染以支持 BlendMode.Clear 擦除效果
+                    .graphicsLayer { alpha = 0.99f } // Forces offscreen rendering, which BlendMode.Clear needs to erase.
                     .pointerInput(Unit) {
                         detectDragGestures(
                             onDragStart = { offset ->
@@ -189,10 +187,9 @@ fun OverlayScreenContent(
 
                                         if (cWidth > 0 && cHeight > 0) {
                                             val cropped = Bitmap.createBitmap(bitmap, cLeft, cTop, cWidth, cHeight)
-                                            onCropAreaSelected(cropped) // 返回截图并退出
+                                            onCropAreaSelected(cropped)
                                         }
                                     }
-                                    // 如果小于阈值，什么都不做，仅仅清空起始点，让用户能重画
                                 }
                                 startPoint = null
                                 currentPoint = null
@@ -205,13 +202,11 @@ fun OverlayScreenContent(
                     }.pointerInput(Unit) {
                         detectTapGestures(
                             onTap = {
-                                // 轻触点击直接退出
                                 onCropAreaSelected(null)
                             },
                         )
                     },
         ) {
-            // 画遮罩
             drawRect(color = Color.Black.copy(alpha = 0.6f), size = size)
 
             val s = startPoint
@@ -225,14 +220,12 @@ fun OverlayScreenContent(
                 val isValid = rect.width >= minCropSize && rect.height >= minCropSize
 
                 if (isValid) {
-                    // 合法时：擦除框选区域背景，让底层的原图透出来
                     drawRect(
                         color = Color.Transparent,
                         topLeft = rect.topLeft,
                         size = rect.size,
                         blendMode = BlendMode.Clear,
                     )
-                    // 画明显白边框
                     drawRect(
                         color = Color.White,
                         topLeft = rect.topLeft,
@@ -240,7 +233,6 @@ fun OverlayScreenContent(
                         style = Stroke(width = 6f),
                     )
                 } else {
-                    // 不合法时：不抠图（保持和背景一样暗），仅画一个半透明的细白线作为范围提示 (dimmed)
                     drawRect(
                         color = Color.White.copy(alpha = 0.3f),
                         topLeft = rect.topLeft,
