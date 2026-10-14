@@ -62,9 +62,7 @@
     <string name="stats_avg_reasoning">平均推理耗时</string>
     <string name="stats_cache_hit">缓存命中</string>
     <string name="stats_speed">生成速度</string>
-    <string name="stats_inference_total">推理总数</string>
-    <string name="stats_vision">识图</string>
-    <string name="stats_parse">解析</string>
+    <string name="stats_inference_counts">识图 / 解析推理次数</string>
     <string name="stats_saved">记过的词</string>
     <string name="stats_loanwords">外来语</string>
     <string name="stats_activity">活动</string>

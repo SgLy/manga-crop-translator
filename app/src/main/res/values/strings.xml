@@ -63,9 +63,7 @@
     <string name="stats_avg_reasoning">Average thinking time</string>
     <string name="stats_cache_hit">Cache hit</string>
     <string name="stats_speed">Generation speed</string>
-    <string name="stats_inference_total">Inference calls</string>
-    <string name="stats_vision">Vision</string>
-    <string name="stats_parse">Parsing</string>
+    <string name="stats_inference_counts">Vision / parsing calls</string>
     <string name="stats_saved">Words noted</string>
     <string name="stats_loanwords">Loanwords</string>
     <string name="stats_activity">Activity</string>

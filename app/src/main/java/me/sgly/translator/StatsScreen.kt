@@ -91,14 +91,9 @@ fun StatsScreen() {
             TokenCard(stats)
             Row(horizontalArrangement = Arrangement.spacedBy(CardGap)) {
                 MetricCard(
-                    label = R.string.stats_inference_total,
-                    value = compact(stats.requests),
-                    modifier = Modifier.weight(1f),
-                    notes =
-                        listOf(
-                            "${stringResource(R.string.stats_vision)} ${compact(visionCount)}",
-                            "${stringResource(R.string.stats_parse)} ${compact(translateCount)}",
-                        ),
+                    R.string.stats_inference_counts,
+                    "${compact(visionCount)} / ${compact(translateCount)}",
+                    Modifier.weight(1f),
                 )
                 MetricCard(R.string.stats_speed, "${tokensPerSecond(stats)} t/s", Modifier.weight(1f))
             }
@@ -205,7 +200,6 @@ private fun MetricCard(
     label: Int,
     value: String,
     modifier: Modifier = Modifier,
-    notes: List<String> = emptyList(),
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -225,13 +219,6 @@ private fun MetricCard(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            notes.forEach {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
