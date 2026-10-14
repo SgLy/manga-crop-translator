@@ -121,6 +121,7 @@ private fun WordsCard(stats: StatsTotals) {
             Text(
                 text = compact(stats.recordedWordCount),
                 style = MaterialTheme.typography.displaySmall,
+                fontFamily = FontFamily.Monospace,
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -153,6 +154,7 @@ private fun TokenCard(stats: StatsTotals) {
             Text(
                 text = compact(stats.inputTokens + stats.outputTokens),
                 style = MaterialTheme.typography.headlineMedium,
+                fontFamily = FontFamily.Monospace,
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -213,6 +215,7 @@ private fun MetricCard(
             Text(
                 text = value,
                 style = MaterialTheme.typography.headlineSmall,
+                fontFamily = FontFamily.Monospace,
             )
             Text(
                 text = stringResource(label),
@@ -369,7 +372,7 @@ private fun percent(
 private fun compact(value: Long): String =
     when {
         value >= 1_000_000 -> String.format(Locale.US, "%.2fM", value / 1_000_000.0)
-        value >= 10_000 -> String.format(Locale.US, "%.1fk", value / 1_000.0)
+        value >= 10_000 -> String.format(Locale.US, "%.1fK", value / 1_000.0)
         else -> exact(value)
     }
 
