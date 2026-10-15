@@ -57,6 +57,11 @@ class SettingsManager(
         get() = prefs.getBoolean(JapaneseFontPreferences.MIUI_ADAPTATION, false)
         set(value) = prefs.edit { putBoolean(JapaneseFontPreferences.MIUI_ADAPTATION, value) }
 
+    /** Japanese text uses the downloaded variable serif, whatever the MIUI option says. */
+    var japaneseFontVariable: Boolean
+        get() = prefs.getBoolean(JapaneseFontPreferences.VARIABLE_FONT, false)
+        set(value) = prefs.edit { putBoolean(JapaneseFontPreferences.VARIABLE_FONT, value) }
+
     /** The thinking sequence, first level tried first; each "think harder" steps up one. */
     var thinkingSequence: List<ThinkingLevel>
         get() = parseThinkingSequence(prefs.getString("thinkingLevels", null))

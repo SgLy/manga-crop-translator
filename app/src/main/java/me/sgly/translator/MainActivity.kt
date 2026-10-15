@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AppBarWithSearch
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,7 +35,9 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -47,8 +50,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +78,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
 import me.sgly.translator.ui.theme.jp.MiuiFontWeight
+import me.sgly.translator.ui.theme.jp.NotoSerifJp
 import me.sgly.translator.ui.theme.jp.japaneseTextStyle
 
 class MainActivity : CapturePermissionActivity() {
@@ -82,6 +88,7 @@ class MainActivity : CapturePermissionActivity() {
         super.onCreate(savedInstanceState)
         settingsManager = SettingsManager(this)
         AppLog.forwardToLogcat = settingsManager.forwardLogsToLogcat
+        NotoSerifJp.refresh(this)
 
         setContent {
             CropTranslatorTheme {
@@ -613,7 +620,19 @@ private fun AboutRow(onClick: () -> Unit) {
 private fun AppearanceSection(settingsManager: SettingsManager) {
     val context = LocalContext.current
     val miuiSupported = remember(context) { MiuiFontWeight.isSupported(context) }
+    val fontState by NotoSerifJp.state.collectAsState()
     var miuiAdaptation by remember { mutableStateOf(settingsManager.japaneseFontMiuiAdaptation) }
+    var variableFont by remember { mutableStateOf(settingsManager.japaneseFontVariable) }
+    var askingToDownload by remember { mutableStateOf(false) }
+
+    LaunchedEffect(context) { NotoSerifJp.refresh(context) }
+    LaunchedEffect(fontState, askingToDownload) {
+        if (askingToDownload && fontState is NotoSerifJp.State.Ready) {
+            variableFont = true
+            settingsManager.japaneseFontVariable = true
+            askingToDownload = false
+        }
+    }
 
     SwitchRow(
         label = stringResource(R.string.japanese_font_miui_adaptation),
@@ -624,4 +643,138 @@ private fun AppearanceSection(settingsManager: SettingsManager) {
             settingsManager.japaneseFontMiuiAdaptation = it
         },
     )
+
+    if (miuiAdaptation) {
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SwitchRow(
+            label = stringResource(R.string.japanese_font_variable),
+            checked = variableFont,
+            onCheckedChange = { wanted ->
+                when {
+                    !wanted -> {
+                        variableFont = false
+                        settingsManager.japaneseFontVariable = false
+                    }
+
+                    fontState is NotoSerifJp.State.Ready -> {
+                        variableFont = true
+                        settingsManager.japaneseFontVariable = true
+                    }
+
+                    else -> {
+                        askingToDownload = true
+                    }
+                }
+            },
+        )
+
+        val downloaded = fontState as? NotoSerifJp.State.Ready
+        if (downloaded != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = stringResource(R.string.japanese_font_downloaded, formatBytes(downloaded.size)),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = {
+                        NotoSerifJp.delete(context)
+                        variableFont = false
+                        settingsManager.japaneseFontVariable = false
+                    },
+                ) {
+                    Text(stringResource(R.string.action_delete))
+                }
+            }
+        }
+
+        if (askingToDownload) {
+            JapaneseFontDownloadDialog(
+                onDismiss = { askingToDownload = false },
+                onDownload = { mirror -> NotoSerifJp.download(context, mirror) },
+            )
+        }
+    }
 }
+
+@Composable
+private fun JapaneseFontDownloadDialog(
+    onDismiss: () -> Unit,
+    onDownload: (NotoSerifJp.Mirror) -> Unit,
+) {
+    val state by NotoSerifJp.state.collectAsState()
+    val downloading = state is NotoSerifJp.State.Downloading
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.japanese_font_download_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.japanese_font_download_message))
+                val progress = state as? NotoSerifJp.State.Downloading
+                if (progress != null) {
+                    Text(stringResource(R.string.japanese_font_downloading, formatProgress(progress)))
+                    if (progress.total > 0) {
+                        LinearProgressIndicator(
+                            progress = { (progress.received.toFloat() / progress.total).coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                val failure = state as? NotoSerifJp.State.Failed
+                if (failure != null) {
+                    Text(
+                        text = stringResource(R.string.japanese_font_download_failed),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Text(
+                        text = failure.reason,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { onDownload(NotoSerifJp.Mirror.GitHub) },
+                        enabled = !downloading,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.japanese_font_download_github))
+                    }
+                    OutlinedButton(
+                        onClick = { onDownload(NotoSerifJp.Mirror.JsDelivr) },
+                        enabled = !downloading,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.japanese_font_download_jsdelivr))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_not_now))
+            }
+        },
+    )
+}
+
+private fun formatProgress(state: NotoSerifJp.State.Downloading): String =
+    if (state.total > 0) {
+        "${formatBytes(state.received)} / ${formatBytes(state.total)}"
+    } else {
+        formatBytes(state.received)
+    }
+
+private fun formatBytes(bytes: Long): String =
+    if (bytes >= 1L shl 20) {
+        "%.1f MB".format(bytes.toFloat() / (1L shl 20))
+    } else {
+        "%.0f KB".format(bytes.toFloat() / 1024f)
+    }

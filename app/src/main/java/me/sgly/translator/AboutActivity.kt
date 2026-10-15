@@ -194,6 +194,7 @@ private enum class License(
     @RawRes val text: Int,
 ) {
     Apache("Apache-2.0", R.raw.apache_license_2_0),
+    SilOfl("SIL OFL 1.1", R.raw.sil_ofl_1_1),
     PublicDomain("Public Domain", R.raw.public_domain_notice),
     Mpl("MPL-2.0", R.raw.mpl_2_0_notice),
 }

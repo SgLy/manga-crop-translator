@@ -2,8 +2,10 @@ package me.sgly.translator.ui.theme.jp
 
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -28,24 +30,42 @@ private val JapaneseLocale = LocaleList("ja")
  * Text(text = lemma, style = japaneseTextStyle(FontWeight.Normal))
  * ```
  *
- * The weight comes from the MIUI slider while that is switched on, and from the caller otherwise.
+ * The weight comes from the MIUI slider while that is switched on, and from the caller otherwise. The
+ * face is the downloaded variable serif while it is present and switched on, else the framework's own
+ * `serif`.
  */
 @Composable
 fun japaneseTextStyle(weight: FontWeight): TextStyle {
     val context = LocalContext.current
     JapaneseFontPreferences.observe(context)
+    LaunchedEffect(context) { NotoSerifJp.refresh(context) }
 
     val flags by JapaneseFontPreferences.flags.collectAsState()
+    val downloaded by NotoSerifJp.state.collectAsState()
     val scale = if (flags.miuiAdaptation) MiuiFontWeight.rememberScale() else null
 
     val target = scale?.let { MiuiFontWeight.nominalWeight(weight.weight, it) } ?: weight.weight
+    val face = remember(target, flags, downloaded) { resolveFace(target, flags, downloaded) }
     return LocalTextStyle.current.merge(
-        TextStyle(
-            fontFamily = FontFamily.Serif,
-            fontWeight = if (flags.miuiAdaptation) serifStep(target) else FontWeight(target),
-            localeList = JapaneseLocale,
-        ),
+        TextStyle(fontFamily = face.family, fontWeight = face.weight, localeList = JapaneseLocale),
     )
+}
+
+private data class JapaneseFace(
+    val family: FontFamily,
+    val weight: FontWeight,
+)
+
+private fun resolveFace(
+    target: Int,
+    flags: JapaneseFontPreferences.Flags,
+    downloaded: NotoSerifJp.State,
+): JapaneseFace {
+    if (flags.miuiAdaptation && flags.variableFont && downloaded is NotoSerifJp.State.Ready) {
+        NotoSerifJp.fontFamily(target)?.let { return JapaneseFace(it, FontWeight(target)) }
+    }
+    if (flags.miuiAdaptation) return JapaneseFace(FontFamily.Serif, serifStep(target))
+    return JapaneseFace(FontFamily.Serif, FontWeight(target))
 }
 
 /**

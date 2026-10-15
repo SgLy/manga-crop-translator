@@ -43,6 +43,7 @@
     <string name="action_undo">撤销</string>
     <string name="action_delete">删除</string>
     <string name="action_keep">留下</string>
+    <string name="action_not_now">不下载</string>
     <string name="no_last_result">没有可供显示的翻译结果，先翻译一次吧</string>
     <string name="show_reasoning">展示思考过程</string>
     <string name="show_token_usage">显示推理用量</string>
@@ -76,6 +77,14 @@
 
     <string name="appearance_section">外观</string>
     <string name="japanese_font_miui_adaptation">MIUI 日文字体粗细跟随系统</string>
+    <string name="japanese_font_variable">使用可变字重日文字体</string>
+    <string name="japanese_font_download_title">下载可变字重日文字体</string>
+    <string name="japanese_font_download_message">MIUI 下，系统自带的日文衬线字体并不支持可变字重，因此只有两种粗细外观，无法完全跟随系统设置的字体粗细。\n\n为了达到更好的粗细显示效果，我们需要额外下载 Noto Serif JP VF。它是系统自带的日文衬线字体的可变字重版本，是由谷歌推出的开源、免费使用字体，遵循开放字体协议（Open Font License）。OFL 的完整文本可以在「关于」页面中的「开源协议」里找到。\n\n你可以选择从 GitHub 或 jsDelivr 下载这个字体，这两个网站提供的字体是完全一致的。</string>
+    <string name="japanese_font_download_github">GitHub</string>
+    <string name="japanese_font_download_jsdelivr">jsDelivr</string>
+    <string name="japanese_font_downloading">正在下载 %1$s</string>
+    <string name="japanese_font_download_failed">下载失败了。你可以试试从另一个网站下载，或者换一个网络。</string>
+    <string name="japanese_font_downloaded">已下载（%1$s）</string>
     <string name="about_title">关于</string>
     <string name="about_version">版本 %1$s</string>
     <string name="about_author">作者</string>
