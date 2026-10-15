@@ -73,4 +73,8 @@
     <string name="stats_legend_less">少</string>
     <string name="stats_legend_more">多</string>
     <string name="stats_empty">还没有记录。翻译一次，这里就会有数据。</string>
+
+    <string name="about_title">关于</string>
+    <string name="about_version">版本 %1$s</string>
+    <string name="about_author">作者</string>
 </resources>

@@ -74,6 +74,11 @@
             android:name=".VocabularyDetailActivity"
             android:theme="@style/Theme.CropTranslator"
             android:exported="false" />
+
+        <activity
+            android:name=".AboutActivity"
+            android:theme="@style/Theme.CropTranslator"
+            android:exported="false" />
     </application>
 
 </manifest>
