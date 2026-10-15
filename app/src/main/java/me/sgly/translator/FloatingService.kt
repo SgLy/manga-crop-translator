@@ -519,7 +519,13 @@ class FloatingService :
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel("floating_service", "Manga Translator Service", NotificationManager.IMPORTANCE_LOW)
+        val channel =
+            NotificationChannel(
+                "floating_service",
+                getString(R.string.notification_channel_name),
+                NotificationManager.IMPORTANCE_LOW,
+            )
+        channel.description = getString(R.string.notification_channel_description)
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(channel)
     }
@@ -527,8 +533,8 @@ class FloatingService :
     private fun createNotification(): Notification {
         val builder = Notification.Builder(this, "floating_service")
         return builder
-            .setContentTitle("Manga Translator Active")
-            .setContentText("Ready to translate manga panels.")
+            .setContentTitle(getString(R.string.notification_title))
+            .setContentText(getString(R.string.notification_text))
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .build()
     }

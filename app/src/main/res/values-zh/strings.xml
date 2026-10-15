@@ -91,4 +91,8 @@
     <string name="about_licenses">开源协议</string>
     <string name="licenses_title">开源协议</string>
     <string name="practice_placeholder">施工中</string>
+    <string name="notification_channel_name">翻译悬浮按钮前台服务通知</string>
+    <string name="notification_channel_description">显示翻译悬浮按钮的前台服务所使用的通知类别</string>
+    <string name="notification_title">漫画框选翻译运行中</string>
+    <string name="notification_text">点击悬浮按钮，开始框选并翻译漫画</string>
 </resources>

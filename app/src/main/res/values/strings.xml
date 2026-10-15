@@ -92,4 +92,8 @@
     <string name="about_licenses">Open source licenses</string>
     <string name="licenses_title">Open source licenses</string>
     <string name="practice_placeholder">Under construction</string>
+    <string name="notification_channel_name">Notifications for the floating translate button</string>
+    <string name="notification_channel_description">Notification category used by the foreground service that shows the floating translate button.</string>
+    <string name="notification_title">Manga Crop Translator is running</string>
+    <string name="notification_text">Tap the floating button to start cropping and translating manga panels</string>
 </resources>
