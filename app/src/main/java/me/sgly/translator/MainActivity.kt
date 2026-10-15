@@ -176,7 +176,7 @@ class MainActivity : CapturePermissionActivity() {
                     ) {
                         when (destination) {
                             Destination.WordList -> summaries?.let { VocabularyListScreen(summaries = it) }
-                            Destination.Practice -> Box(modifier = Modifier.fillMaxSize())
+                            Destination.Practice -> PlaceholderScreen(stringResource(R.string.practice_placeholder))
                             Destination.Stats -> StatsScreen()
                             Destination.Settings -> SettingsScreen(settingsManager)
                         }
@@ -284,6 +284,20 @@ private fun VocabularyListScreen(summaries: List<VocabularySummary>) {
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun PlaceholderScreen(message: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

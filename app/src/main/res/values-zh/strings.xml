@@ -90,4 +90,5 @@
     <string name="about_author">作者</string>
     <string name="about_licenses">开源协议</string>
     <string name="licenses_title">开源协议</string>
+    <string name="practice_placeholder">施工中</string>
 </resources>
