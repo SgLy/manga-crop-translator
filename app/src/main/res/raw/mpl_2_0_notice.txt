@@ -1,0 +1,6 @@
+Public Suffix List
+
+OkHttp embeds the Public Suffix List in this app (assets/PublicSuffixDatabase.list).
+
+The list is maintained at https://publicsuffix.org and distributed under the Mozilla Public
+License 2.0 (https://mozilla.org/MPL/2.0/).

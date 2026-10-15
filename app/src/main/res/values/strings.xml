@@ -78,4 +78,6 @@
     <string name="about_title">About</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_author">Author</string>
+    <string name="about_licenses">Open source licenses</string>
+    <string name="licenses_title">Open source licenses</string>
 </resources>

@@ -1,0 +1,5 @@
+org.json (JSON-java)
+https://github.com/stleary/JSON-java
+
+The library is published into the public domain; its published Maven POM states the license as
+"Public Domain". No license text applies.

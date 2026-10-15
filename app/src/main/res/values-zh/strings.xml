@@ -77,4 +77,6 @@
     <string name="about_title">关于</string>
     <string name="about_version">版本 %1$s</string>
     <string name="about_author">作者</string>
+    <string name="about_licenses">开源协议</string>
+    <string name="licenses_title">开源协议</string>
 </resources>
