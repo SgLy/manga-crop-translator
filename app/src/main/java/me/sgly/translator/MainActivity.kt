@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
+import me.sgly.translator.ui.theme.jp.MiuiFontWeight
 import me.sgly.translator.ui.theme.jp.japaneseTextStyle
 
 class MainActivity : CapturePermissionActivity() {
@@ -473,6 +474,12 @@ private fun SettingsScreen(settingsManager: SettingsManager) {
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+        SectionTitle(stringResource(R.string.appearance_section))
+        Spacer(modifier = Modifier.height(12.dp))
+        AppearanceSection(settingsManager)
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
         SectionTitle(stringResource(R.string.debug_section))
         SwitchRow(
             label = stringResource(R.string.forward_logs_to_logcat),
@@ -520,6 +527,7 @@ private fun SwitchRow(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -530,7 +538,7 @@ private fun SwitchRow(
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f),
         )
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 
@@ -599,4 +607,21 @@ private fun AboutRow(onClick: () -> Unit) {
             modifier = Modifier.rotate(180f),
         )
     }
+}
+
+@Composable
+private fun AppearanceSection(settingsManager: SettingsManager) {
+    val context = LocalContext.current
+    val miuiSupported = remember(context) { MiuiFontWeight.isSupported(context) }
+    var miuiAdaptation by remember { mutableStateOf(settingsManager.japaneseFontMiuiAdaptation) }
+
+    SwitchRow(
+        label = stringResource(R.string.japanese_font_miui_adaptation),
+        checked = miuiAdaptation,
+        enabled = miuiSupported,
+        onCheckedChange = {
+            miuiAdaptation = it
+            settingsManager.japaneseFontMiuiAdaptation = it
+        },
+    )
 }

@@ -75,6 +75,8 @@
     <string name="stats_legend_more">More</string>
     <string name="stats_empty">Nothing here yet — translate something and the numbers will show up.</string>
 
+    <string name="appearance_section">Appearance</string>
+    <string name="japanese_font_miui_adaptation">Follow the system font weight for Japanese (MIUI)</string>
     <string name="about_title">About</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_author">Author</string>

@@ -3,6 +3,7 @@ package me.sgly.translator
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import me.sgly.translator.ui.theme.jp.JapaneseFontPreferences
 
 class SettingsManager(
     context: Context,
@@ -50,6 +51,11 @@ class SettingsManager(
     var showTokenUsage: Boolean
         get() = prefs.getBoolean("showTokenUsage", false)
         set(value) = prefs.edit { putBoolean("showTokenUsage", value) }
+
+    /** Japanese text follows the MIUI font weight slider. The font layer reads this key directly. */
+    var japaneseFontMiuiAdaptation: Boolean
+        get() = prefs.getBoolean(JapaneseFontPreferences.MIUI_ADAPTATION, false)
+        set(value) = prefs.edit { putBoolean(JapaneseFontPreferences.MIUI_ADAPTATION, value) }
 
     /** The thinking sequence, first level tried first; each "think harder" steps up one. */
     var thinkingSequence: List<ThinkingLevel>
