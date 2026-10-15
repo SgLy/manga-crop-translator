@@ -54,12 +54,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
+import me.sgly.translator.ui.theme.jp.japaneseTextStyle
 
 class VocabularyDetailActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -70,8 +72,9 @@ class VocabularyDetailActivity : ComponentActivity() {
 
         setContent {
             CropTranslatorTheme {
-                val word by remember { dao.wordWithEntries(wordId) }
+                val stored by remember { dao.wordWithEntries(wordId) }
                     .collectAsState(initial = null)
+                val word = stored
                 val snackbarHostState = remember { SnackbarHostState() }
                 val scope = rememberCoroutineScope()
                 var restoredEntryId by remember { mutableStateOf<Long?>(null) }
@@ -83,8 +86,18 @@ class VocabularyDetailActivity : ComponentActivity() {
                     snackbarHost = { SnackbarHost(snackbarHostState) },
                     topBar = {
                         LargeFlexibleTopAppBar(
-                            title = { Text(word?.word?.lemma.orEmpty()) },
-                            subtitle = { Text(word?.word?.let { it.origin.ifEmpty { it.reading } }.orEmpty()) },
+                            title = {
+                                Text(
+                                    text = word?.word?.lemma.orEmpty(),
+                                    style = japaneseTextStyle(FontWeight.Normal),
+                                )
+                            },
+                            subtitle = {
+                                Text(
+                                    text = word?.word?.let { it.origin.ifEmpty { it.reading } }.orEmpty(),
+                                    style = japaneseTextStyle(FontWeight.Normal),
+                                )
+                            },
                             navigationIcon = {
                                 IconButton(onClick = { finish() }) {
                                     Icon(
@@ -306,6 +319,7 @@ private fun EntryRow(entry: VocabularyEntry) {
                     surface = entry.surface,
                     highlight = MaterialTheme.colorScheme.primary,
                 ),
+            style = japaneseTextStyle(FontWeight.Normal),
             fontSize = 15.sp,
             lineHeight = 22.sp,
         )

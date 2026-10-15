@@ -53,9 +53,11 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import me.sgly.translator.ui.theme.jp.japaneseTextStyle
 import java.util.Locale
 
 @Composable
@@ -352,6 +354,7 @@ private fun AnnotatedWord(token: SourceToken.Annotated) {
         ) {
             Text(
                 text = token.surface,
+                style = japaneseTextStyle(FontWeight.Normal),
                 fontSize = 15.sp,
                 lineHeight = 20.sp,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -461,6 +464,7 @@ private fun ResultBlocks(
                                 chunkPlainText(token.text).forEach { chunk ->
                                     Text(
                                         text = chunk,
+                                        style = japaneseTextStyle(FontWeight.Normal),
                                         fontSize = 15.sp,
                                         lineHeight = 20.sp,
                                         color = MaterialTheme.colorScheme.onSurface,

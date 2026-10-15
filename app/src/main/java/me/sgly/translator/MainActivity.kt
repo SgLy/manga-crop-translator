@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import me.sgly.translator.ui.theme.CropTranslatorTheme
+import me.sgly.translator.ui.theme.jp.japaneseTextStyle
 
 class MainActivity : CapturePermissionActivity() {
     private lateinit var settingsManager: SettingsManager
@@ -293,8 +294,8 @@ private fun VocabularyCard(
             ) {
                 Text(
                     text = summary.lemma,
+                    style = japaneseTextStyle(FontWeight.Medium),
                     fontSize = 17.sp,
-                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     // Leaves room for the count badge sitting in the card's top-right corner.
