@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Crop Translator"
+rootProject.name = "Manga Crop Translator"
 include(":app")

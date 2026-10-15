@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Crop Translator</string>
+    <string name="app_name">Manga Crop Translator</string>
     <string name="cd_back">Back</string>
     <string name="cd_streaming">Receiving response</string>
     <string name="cd_token_input">Input tokens</string>

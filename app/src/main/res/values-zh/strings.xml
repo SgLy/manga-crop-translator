@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">漫画翻译</string>
+    <string name="app_name">漫画框选翻译</string>
     <string name="cd_back">返回</string>
     <string name="cd_streaming">正在接收响应</string>
     <string name="cd_token_input">输入 token 数</string>

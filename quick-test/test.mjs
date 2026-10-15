@@ -1,5 +1,5 @@
 // ============================================================
-// quick-test/test.mjs — Manga Translator Prompt 快速调优脚本
+// quick-test/test.mjs — Manga Crop Translator Prompt 快速调优脚本
 // 用法: node test.mjs visual    (测试 VisualModel OCR)
 //       node test.mjs translate    (测试 TranslateModel 翻译)
 // 改完下面的 prompt 后直接重新运行即可看效果
