@@ -512,9 +512,17 @@ private fun SettingsScreen(settingsManager: SettingsManager) {
             },
         )
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LinkRow(label = stringResource(R.string.action_logs)) {
+            context.startActivity(Intent(context, LogsActivity::class.java))
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        AboutRow(onClick = { context.startActivity(Intent(context, AboutActivity::class.java)) })
+        LinkRow(label = stringResource(R.string.about_title)) {
+            context.startActivity(Intent(context, AboutActivity::class.java))
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
     }
@@ -608,7 +616,10 @@ private fun SettingsField(
 }
 
 @Composable
-private fun AboutRow(onClick: () -> Unit) {
+private fun LinkRow(
+    label: String,
+    onClick: () -> Unit,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
@@ -618,7 +629,7 @@ private fun AboutRow(onClick: () -> Unit) {
                 .padding(vertical = 8.dp),
     ) {
         Text(
-            text = stringResource(R.string.about_title),
+            text = label,
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f),
         )

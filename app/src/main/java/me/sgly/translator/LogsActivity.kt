@@ -1,6 +1,7 @@
 package me.sgly.translator
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,7 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -29,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +43,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.sgly.translator.ui.theme.CropTranslatorTheme
 import java.text.SimpleDateFormat
@@ -53,6 +57,7 @@ class LogsActivity : ComponentActivity() {
         setContent {
             CropTranslatorTheme {
                 var lines by remember { mutableStateOf<List<AppLog.Line>>(emptyList()) }
+                val scope = rememberCoroutineScope()
                 // Resolving lazy messages can be costly, so keep it off the main thread.
                 LaunchedEffect(Unit) {
                     lines = withContext(Dispatchers.Default) { AppLog.snapshotNewestFirst() }
@@ -74,6 +79,28 @@ class LogsActivity : ComponentActivity() {
                                 }
                             },
                             scrollBehavior = scrollBehavior,
+                            actions = {
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            try {
+                                                val entries = withContext(Dispatchers.Default) { AppLog.snapshot() }
+                                                LogExport.share(this@LogsActivity, entries)
+                                            } catch (_: Exception) {
+                                                Toast
+                                                    .makeText(
+                                                        this@LogsActivity,
+                                                        R.string.logs_export_failed,
+                                                        Toast.LENGTH_SHORT,
+                                                    ).show()
+                                            }
+                                        }
+                                    },
+                                    enabled = lines.isNotEmpty(),
+                                ) {
+                                    Text(stringResource(R.string.action_export))
+                                }
+                            },
                         )
                     },
                 ) { padding ->

@@ -31,6 +31,9 @@
     <string name="step_recognize">Reading the image</string>
     <string name="step_parse">Parsing the text</string>
     <string name="action_logs">Logs</string>
+    <string name="action_export">Export</string>
+    <string name="share_logs_title">Share logs</string>
+    <string name="logs_export_failed">Could not export the logs.</string>
     <string name="action_think_harder">Think harder</string>
     <string name="action_save">Take a note</string>
     <string name="action_got_it">Got it</string>

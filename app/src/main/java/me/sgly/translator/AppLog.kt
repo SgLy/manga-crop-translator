@@ -3,7 +3,7 @@ package me.sgly.translator
 import android.util.Log
 
 object AppLog {
-    private const val MAX_ENTRIES = 100
+    private const val MAX_ENTRIES = 200
     private const val LOGCAT_CHUNK = 3500
 
     enum class Level { Debug, Info, Warn, Error }
