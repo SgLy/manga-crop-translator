@@ -51,18 +51,16 @@ enum class TransitionReason {
     CloseLogs, // ShowingLogs → the phase it was opened from
 }
 
-data class Transition(
-    val from: AppPhase,
-    val to: AppPhase,
-    val reason: TransitionReason,
-)
-
-/** The last completed translation, kept so a long press on the FAB can bring it back. */
-data class LastTranslation(
-    val ocr: OcrResult,
-    val translation: TranslationResult,
-    val requests: List<RequestStats>,
-)
+/** What one run through the pipeline produced, filled in as the run progresses. */
+data class RunResults(
+    val ocr: OcrResult? = null,
+    val translation: TranslationResult? = null,
+    val error: String = "",
+    val requests: List<RequestStats> = emptyList(),
+) {
+    /** This run as a finished translation, or null while a step is still missing. */
+    fun completedOrNull(): RunResults? = takeIf { ocr != null && translation != null }?.copy(error = "")
+}
 
 /** Thinking strength a model can be asked for, weakest first. */
 enum class ThinkingLevel {
@@ -96,14 +94,9 @@ object TranslatorState {
     val reasoning: StateFlow<String> = _reasoning.asStateFlow()
 
     val streamTape = StreamTape()
-    private val _runRequests = MutableStateFlow<List<RequestStats>>(emptyList())
-    val runRequests: StateFlow<List<RequestStats>> = _runRequests.asStateFlow()
 
     private val _reportedRequests = MutableSharedFlow<RequestStats>(extraBufferCapacity = 16)
     val reportedRequests: SharedFlow<RequestStats> = _reportedRequests.asSharedFlow()
-
-    private val _lastTransition = MutableSharedFlow<Transition>(extraBufferCapacity = 1)
-    val lastTransition: SharedFlow<Transition> = _lastTransition.asSharedFlow()
 
     private var thinkingSequence: List<ThinkingLevel> = ThinkingLevel.defaultSequence
     private val _thinkingLevelIndex = MutableStateFlow(0)
@@ -124,7 +117,8 @@ object TranslatorState {
     var capturedBitmap: Bitmap? = null
     var croppedBitmap: Bitmap? = null
 
-    var lastTranslation: LastTranslation? = null
+    /** The last completed run, kept so a long press on the FAB can bring it back. */
+    var lastTranslation: RunResults? = null
         private set
 
     /** Why the current round of inference started, or null while none is in flight. */
@@ -141,7 +135,7 @@ object TranslatorState {
     var phaseBeforeLogs: AppPhase? = null
         private set
 
-    // Result data: observed reactively by UI components
+    // The run in flight, observed by the UI one field at a time
     private val _ocrResult = MutableStateFlow<OcrResult?>(null)
     val ocrResult: StateFlow<OcrResult?> = _ocrResult.asStateFlow()
 
@@ -151,17 +145,29 @@ object TranslatorState {
     private val _errorText = MutableStateFlow("")
     val errorText: StateFlow<String> = _errorText.asStateFlow()
 
+    private val _runRequests = MutableStateFlow<List<RequestStats>>(emptyList())
+    val runRequests: StateFlow<List<RequestStats>> = _runRequests.asStateFlow()
+
+    private var results: RunResults
+        get() = RunResults(_ocrResult.value, _translationResult.value, _errorText.value, _runRequests.value)
+        set(value) {
+            _ocrResult.value = value.ocr
+            _translationResult.value = value.translation
+            _errorText.value = value.error
+            _runRequests.value = value.requests
+        }
+
     // Data setters — call before transition() so UI sees consistent state on phase change
     fun setOcrResult(result: OcrResult) {
-        _ocrResult.value = result
+        results = results.copy(ocr = result)
     }
 
     fun setTranslationResult(result: TranslationResult) {
-        _translationResult.value = result
+        results = results.copy(translation = result)
     }
 
     fun setErrorText(text: String) {
-        _errorText.value = text
+        results = results.copy(error = text)
     }
 
     fun setSheetOnScreen(onScreen: Boolean) {
@@ -185,7 +191,7 @@ object TranslatorState {
 
     /** Called once per request with what that request cost. */
     fun onStats(stats: RequestStats) {
-        _runRequests.value += stats
+        results = results.copy(requests = results.requests + stats)
         _reportedRequests.tryEmit(stats)
     }
 
@@ -195,9 +201,27 @@ object TranslatorState {
         streamTape.clear()
     }
 
-    private fun resetRunStats() {
-        _runRequests.value = emptyList()
+    /** Opens the next round of inference, whose stats row is created with its first request. */
+    private fun beginRound(next: RunResults) {
+        results = next.copy(requests = emptyList())
         roundId = null
+    }
+
+    /** Everything the run in flight produced, gone; the lease and the remembered translation stay. */
+    private fun clearRun() {
+        beginRound(RunResults())
+        capturedBitmap = null
+        croppedBitmap = null
+        _thinkingLevelIndex.value = 0
+        resetStreamProgress()
+    }
+
+    /** Everything the capture lease produced, gone; only the lease itself lives on. */
+    private fun clearSession() {
+        clearRun()
+        lastTranslation = null
+        translationId = null
+        runReason = null
     }
 
     /** The single entry point for all state transitions. */
@@ -210,17 +234,27 @@ object TranslatorState {
         when (reason) {
             TransitionReason.FabClicked -> {
                 _thinkingLevelIndex.value = 0
-                resetRunStats()
+                beginRound(results)
+                runReason = reason
+            }
+
+            TransitionReason.ThinkHarder -> {
+                escalateThinking()
+                beginRound(RunResults())
+                runReason = reason
+            }
+
+            TransitionReason.Retry -> {
+                beginRound(RunResults(ocr = results.ocr.takeIf { from == AppPhase.TranslateError }))
                 runReason = reason
             }
 
             TransitionReason.FabLongPressed -> {
-                lastTranslation?.let {
-                    _ocrResult.value = it.ocr
-                    _translationResult.value = it.translation
-                    _runRequests.value = it.requests
-                }
-                _errorText.value = ""
+                lastTranslation?.let { results = it }
+            }
+
+            TransitionReason.TranslateSuccess -> {
+                results.completedOrNull()?.let { lastTranslation = it }
             }
 
             TransitionReason.ShowLogs -> {
@@ -231,59 +265,17 @@ object TranslatorState {
                 phaseBeforeLogs = null
             }
 
-            TransitionReason.TranslateSuccess -> {
-                val ocr = _ocrResult.value
-                val translation = _translationResult.value
-                if (ocr != null && translation != null) {
-                    lastTranslation = LastTranslation(ocr, translation, _runRequests.value)
-                }
-            }
-
-            TransitionReason.ThinkHarder -> {
-                _ocrResult.value = null
-                _translationResult.value = null
-                _errorText.value = ""
-                resetRunStats()
-                escalateThinking()
-                runReason = reason
-            }
-
-            TransitionReason.Retry -> {
-                _errorText.value = ""
-                _translationResult.value = null
-                resetRunStats()
-                runReason = reason
-                if (from == AppPhase.OcrError) _ocrResult.value = null
-                // TranslateError retry preserves ocrResult (only re-runs TranslateModel)
+            TransitionReason.Dismiss,
+            TransitionReason.CropCancelled,
+            TransitionReason.CaptureError,
+            -> {
+                clearRun()
             }
 
             TransitionReason.CaptureLost,
             TransitionReason.Reset,
             -> {
-                capturedBitmap = null
-                croppedBitmap = null
-                _ocrResult.value = null
-                _translationResult.value = null
-                _errorText.value = ""
-                _thinkingLevelIndex.value = 0
-                lastTranslation = null
-                resetRunStats()
-                resetStreamProgress()
-                runReason = null
-                translationId = null
-            }
-
-            TransitionReason.Dismiss,
-            TransitionReason.CropCancelled,
-            TransitionReason.CaptureError,
-            -> {
-                capturedBitmap = null
-                croppedBitmap = null
-                _ocrResult.value = null
-                _translationResult.value = null
-                _errorText.value = ""
-                _thinkingLevelIndex.value = 0
-                resetRunStats()
+                clearSession()
             }
 
             else -> {}
@@ -292,7 +284,6 @@ object TranslatorState {
             resetStreamProgress()
         }
         _phase.value = to
-        _lastTransition.tryEmit(Transition(from, to, reason))
     }
 
     fun closeLogsIfOpen() {
