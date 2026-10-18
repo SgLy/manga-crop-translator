@@ -63,7 +63,7 @@ class SheetActivity : ComponentActivity() {
                     ) {
                         val isProgressPhase =
                             phase == AppPhase.Recognizing ||
-                                phase == AppPhase.Parsing ||
+                                phase == AppPhase.Translating ||
                                 phase == AppPhase.OcrError ||
                                 phase == AppPhase.TranslateError
                         if (isProgressPhase) {

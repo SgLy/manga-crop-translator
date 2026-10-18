@@ -29,7 +29,7 @@
 
     <string name="overlay_hint">Drag to crop one or more text areas\nTap outside to exit</string>
     <string name="step_recognize">Reading the image</string>
-    <string name="step_parse">Parsing the text</string>
+    <string name="step_translate">Translating the text</string>
     <string name="action_logs">Logs</string>
     <string name="action_export">Export</string>
     <string name="share_logs_title">Share logs</string>

@@ -71,12 +71,12 @@ fun ProgressSheet(phase: AppPhase) {
         when (phase) {
             AppPhase.Recognizing -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
             AppPhase.OcrError -> StepUiStatus.Error
-            AppPhase.Parsing, AppPhase.TranslateError -> StepUiStatus.Done
+            AppPhase.Translating, AppPhase.TranslateError -> StepUiStatus.Done
             else -> StepUiStatus.Idle
         }
     val translateStatus =
         when (phase) {
-            AppPhase.Parsing -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
+            AppPhase.Translating -> if (firstTokenReceived) StepUiStatus.Streaming else StepUiStatus.Waiting
             AppPhase.TranslateError -> StepUiStatus.Error
             else -> StepUiStatus.Idle
         }
@@ -107,7 +107,7 @@ fun ProgressSheet(phase: AppPhase) {
             }
         }
 
-        val inFlight = phase == AppPhase.Recognizing || phase == AppPhase.Parsing
+        val inFlight = phase == AppPhase.Recognizing || phase == AppPhase.Translating
         if (inFlight) {
             when {
                 showReasoning && reasoning.isNotEmpty() -> ReasoningStrip(reasoning)
@@ -132,7 +132,7 @@ private fun ProgressActions(phase: AppPhase) {
         Spacer(modifier = Modifier.weight(1f))
         Button(
             onClick = {
-                val nextPhase = if (phase == AppPhase.TranslateError) AppPhase.Parsing else AppPhase.Recognizing
+                val nextPhase = if (phase == AppPhase.TranslateError) AppPhase.Translating else AppPhase.Recognizing
                 TranslatorState.transition(nextPhase, TransitionReason.Retry)
             },
         ) {
@@ -278,7 +278,7 @@ private fun StepFlow(
     ) {
         StepRow(label = stringResource(R.string.step_recognize), status = ocrStatus)
         Spacer(modifier = Modifier.width(40.dp))
-        StepRow(label = stringResource(R.string.step_parse), status = translateStatus)
+        StepRow(label = stringResource(R.string.step_translate), status = translateStatus)
     }
 }
 

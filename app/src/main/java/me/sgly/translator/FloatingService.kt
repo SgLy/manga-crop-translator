@@ -165,7 +165,7 @@ class FloatingService :
                                 TranslatorState.transition(AppPhase.OcrError, TransitionReason.OcrFailed)
                             } else {
                                 TranslatorState.setOcrResult(result)
-                                TranslatorState.transition(AppPhase.Parsing, TransitionReason.OcrSuccess)
+                                TranslatorState.transition(AppPhase.Translating, TransitionReason.OcrSuccess)
                             }
                         } catch (e: Exception) {
                             // A run the user dismissed is not a failure; leave the state alone.
@@ -175,7 +175,7 @@ class FloatingService :
                         }
                     }
 
-                    AppPhase.Parsing -> {
+                    AppPhase.Translating -> {
                         try {
                             val prettyJson = kotlinx.serialization.json.Json { prettyPrint = true }
                             val ocrText = prettyJson.encodeToString(OcrResult.serializer(), TranslatorState.ocrResult.value!!)

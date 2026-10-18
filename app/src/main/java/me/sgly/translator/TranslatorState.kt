@@ -14,10 +14,10 @@ enum class AppPhase {
     Capturing, // FAB hidden, waiting for screen frame
     Cropping, // Crop overlay visible, user selecting region
     Recognizing, // Result sheet open, OCR in progress
-    Parsing, // Result sheet open, TranslateModel in progress
+    Translating, // Result sheet open, translateText() in progress
     Done, // Result sheet open, both steps complete
     OcrError, // Result sheet open, OCR failed
-    TranslateError, // Result sheet open, TranslateModel failed (OCR result preserved)
+    TranslateError, // Result sheet open, the translation failed (OCR result preserved)
     ViewingLast, // Result sheet open, showing the previous result
     ShowingLogs, // Logs screen open, the result sheet is hidden
     ;
@@ -25,7 +25,7 @@ enum class AppPhase {
     val showsSheet: Boolean
         get() =
             when (this) {
-                Recognizing, Parsing, Done, OcrError, TranslateError, ViewingLast -> true
+                Recognizing, Translating, Done, OcrError, TranslateError, ViewingLast -> true
                 None, Idle, Capturing, Cropping, ShowingLogs -> false
             }
 }
@@ -39,12 +39,12 @@ enum class TransitionReason {
     CaptureError, // Capturing → Idle (no frame arrived)
     CropSelected, // Cropping → Recognizing
     CropCancelled, // Cropping → Idle
-    OcrSuccess, // Recognizing → Parsing
+    OcrSuccess, // Recognizing → Translating
     OcrFailed, // Recognizing → OcrError
-    TranslateSuccess, // Parsing → Done
-    TranslateFailed, // Parsing → TranslateError
+    TranslateSuccess, // Translating → Done
+    TranslateFailed, // Translating → TranslateError
     ThinkHarder, // Done → Recognizing (re-run everything, same crop)
-    Retry, // OcrError → Recognizing; TranslateError → Parsing
+    Retry, // OcrError → Recognizing; TranslateError → Translating
     Dismiss, // Done/OcrError/TranslateError → Idle
     Reset, // any → None (a capture flow is starting over)
     ShowLogs, // Done/OcrError/TranslateError/ViewingLast → ShowingLogs
@@ -280,7 +280,7 @@ object TranslatorState {
 
             else -> {}
         }
-        if (to == AppPhase.Recognizing || to == AppPhase.Parsing) {
+        if (to == AppPhase.Recognizing || to == AppPhase.Translating) {
             resetStreamProgress()
         }
         _phase.value = to
