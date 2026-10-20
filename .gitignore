@@ -25,6 +25,8 @@ quick-test/crop.png
 quick-test/ocr-result.json
 quick-test/translate-result.json
 quick-test/demo.html
+quick-test/chunks.json
+quick-test/grid-sim.mjs
 
 # Release signing material — never commit these
 *.jks

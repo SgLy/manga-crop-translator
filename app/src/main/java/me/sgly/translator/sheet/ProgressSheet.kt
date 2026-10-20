@@ -82,7 +82,7 @@ fun ProgressSheet(phase: AppPhase) {
         if (inFlight) {
             when {
                 showReasoning && reasoning.isNotEmpty() -> ReasoningStrip(reasoning)
-                !showReasoning -> ReasoningTape()
+                !showReasoning -> ReasoningGrid()
             }
         }
 

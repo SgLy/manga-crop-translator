@@ -97,7 +97,7 @@ object TranslatorState {
     private val _reasoning = MutableStateFlow("")
     val reasoning: StateFlow<String> = _reasoning.asStateFlow()
 
-    val streamTape = StreamTape()
+    internal val streamGrid = StreamGrid()
 
     private val _reportedRequests = MutableSharedFlow<RequestStats>(extraBufferCapacity = 16)
     val reportedRequests: SharedFlow<RequestStats> = _reportedRequests.asSharedFlow()
@@ -183,13 +183,13 @@ object TranslatorState {
      * arguments. The first one flips the step row from the waiting spinner to the streaming arrow.
      */
     fun onOutputDelta(delta: String) {
-        streamTape.append(delta.length)
+        streamGrid.append(delta.length)
         _firstTokenReceived.value = true
     }
 
     fun onReasoningDelta(delta: String) {
         _reasoning.value += delta
-        streamTape.append(delta.length)
+        streamGrid.append(delta.length)
         _firstTokenReceived.value = true
     }
 
@@ -202,7 +202,7 @@ object TranslatorState {
     private fun resetStreamProgress() {
         _firstTokenReceived.value = false
         _reasoning.value = ""
-        streamTape.clear()
+        streamGrid.clear()
     }
 
     /** Opens the next round of inference, whose stats row is created with its first request. */
@@ -297,35 +297,5 @@ object TranslatorState {
 
     fun reset() {
         transition(AppPhase.None, TransitionReason.Reset)
-    }
-}
-
-/**
- * The streaming output as a tape of delta lengths, newest last. Reasoning and content both land
- * here, so the tape keeps moving while the model writes its tool arguments. Only the newest
- * [capacity] deltas are kept, which is more than the strip can draw.
- */
-class StreamTape(
-    private val capacity: Int = 256,
-) {
-    private val lengths = IntArray(capacity)
-
-    /** Deltas appended since the tape was created, including those that have scrolled off. */
-    var total: Int = 0
-        private set
-
-    val available: Int
-        get() = minOf(total, capacity)
-
-    fun append(length: Int) {
-        lengths[total % capacity] = length
-        total++
-    }
-
-    /** The length of the delta [age] slots back from the newest, or null once it has scrolled off. */
-    fun lengthAt(age: Int): Int? = if (age in 0 until available) lengths[(total - 1 - age) % capacity] else null
-
-    fun clear() {
-        total = 0
     }
 }

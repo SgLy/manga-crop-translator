@@ -53,9 +53,9 @@ object LogExport {
     )
 
     @Serializable
-    private data class StreamTapeInfo(
-        val total: Int,
-        val available: Int,
+    private data class StreamGridInfo(
+        val rows: Int,
+        val filledCells: Int,
     )
 
     @Serializable
@@ -82,7 +82,7 @@ object LogExport {
         val thinkingEffort: String,
         val thinkingLevelIndex: Int,
         val errorText: String,
-        val streamTape: StreamTapeInfo,
+        val streamGrid: StreamGridInfo,
         val capturedBitmap: BitmapSize?,
         val croppedBitmap: BitmapSize?,
         val translationId: Long?,
@@ -198,11 +198,7 @@ object LogExport {
                     thinkingEffort = TranslatorState.currentThinkingEffort(),
                     thinkingLevelIndex = TranslatorState.thinkingLevelIndex.value,
                     errorText = TranslatorState.errorText.value,
-                    streamTape =
-                        StreamTapeInfo(
-                            total = TranslatorState.streamTape.total,
-                            available = TranslatorState.streamTape.available,
-                        ),
+                    streamGrid = streamGridInfo(),
                     capturedBitmap = bitmapSize(TranslatorState.capturedBitmap),
                     croppedBitmap = bitmapSize(TranslatorState.croppedBitmap),
                     translationId = TranslatorState.translationId,
@@ -226,6 +222,11 @@ object LogExport {
 
     // Only the dimensions are exported; the bitmaps themselves are far too large to embed.
     private fun bitmapSize(bitmap: Bitmap?): BitmapSize? = bitmap?.let { BitmapSize(it.width, it.height) }
+
+    private fun streamGridInfo(): StreamGridInfo {
+        val fill = TranslatorState.streamGrid.fill()
+        return StreamGridInfo(rows = fill.rows, filledCells = fill.filledCells)
+    }
 
     private fun RequestStats.toInfo(): RequestInfo =
         RequestInfo(

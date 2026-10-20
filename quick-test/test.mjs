@@ -75,6 +75,8 @@ function buildThinkingConfig(envValue) {
 // 流式读取辅助 — 实时输出思考过程和内容
 // ============================================================
 async function streamResponse(resp) {
+  const startedAt = Date.now();
+  const records = [];
   let contentText = "";
   let reasoningText = "";
   let toolCallArgs = "";
@@ -103,6 +105,7 @@ async function streamResponse(resp) {
     // ---- 思考过程 (reasoning_content) ----
     const reasoning = delta.reasoning_content;
     if (reasoning) {
+      records.push({ t: Date.now() - startedAt, kind: "reasoning", length: reasoning.length });
       if (firstReasoning) {
         process.stdout.write("\n💭 [思考] ");
         firstReasoning = false;
@@ -113,6 +116,7 @@ async function streamResponse(resp) {
 
     // ---- 正文内容 ----
     if (delta.content) {
+      records.push({ t: Date.now() - startedAt, kind: "content", length: delta.content.length });
       if (firstContent) {
         if (!firstReasoning) process.stdout.write("\n\n📝 [输出] ");
         firstContent = false;
@@ -125,6 +129,7 @@ async function streamResponse(resp) {
     if (delta.tool_calls) {
       for (const tc of delta.tool_calls) {
         if (tc.function?.arguments) {
+          records.push({ t: Date.now() - startedAt, kind: "arguments", length: tc.function.arguments.length });
           toolCallArgs += tc.function.arguments;
         }
       }
@@ -133,6 +138,10 @@ async function streamResponse(resp) {
 
   // 末尾换行
   if (!firstReasoning || !firstContent) process.stdout.write("\n");
+
+  // ---- chunk 时序记录 ----
+  fs.writeFileSync(path.join(__dirname, "chunks.json"), JSON.stringify(records), "utf-8");
+  console.log(`\n🧩 已写入 chunks.json（${records.length} 条）`);
 
   // ---- usage 汇总 ----
   console.log(`\n📊 共收到 ${chunkCount} 个 chunk，其中带 usage 的有 ${usageChunks.length} 个`);

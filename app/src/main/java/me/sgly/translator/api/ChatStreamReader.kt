@@ -66,8 +66,10 @@ internal class ChatStreamReader(
                                     functionArguments.append(arguments)
                                     // Tool arguments stream in as their own chunks; count them too so
                                     // the counter keeps moving while the model writes the JSON.
-                                    markFirstToken()
-                                    onOutputDelta(arguments)
+                                    if (arguments.isNotEmpty()) {
+                                        markFirstToken()
+                                        onOutputDelta(arguments)
+                                    }
                                 }
                             }
                         }
