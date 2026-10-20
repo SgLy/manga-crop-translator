@@ -10,7 +10,6 @@
     <string name="cd_elapsed">总耗时</string>
     <string name="cd_token_rate">每秒 token 数</string>
     <string name="start">开始</string>
-    <string name="tile_label">翻译</string>
     <string name="vocabulary_empty">什么都没有，白茫茫一片</string>
 
     <string name="image_recognition_model">图片识别模型</string>
