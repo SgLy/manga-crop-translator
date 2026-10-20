@@ -33,12 +33,12 @@
         </activity>
 
         <service
-            android:name=".FloatingService"
+            android:name=".runtime.FloatingService"
             android:foregroundServiceType="mediaProjection"
             android:exported="false" />
 
         <service
-            android:name=".TranslateTileService"
+            android:name=".capture.TranslateTileService"
             android:icon="@drawable/ic_tile"
             android:label="@string/tile_label"
             android:exported="true"
@@ -49,7 +49,7 @@
         </service>
 
         <activity
-            android:name=".CaptureActivity"
+            android:name=".capture.CaptureActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
             android:launchMode="singleTask"
@@ -57,7 +57,7 @@
             android:exported="false" />
 
         <activity
-            android:name=".SheetActivity"
+            android:name=".sheet.SheetActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
             android:launchMode="singleTask"
@@ -65,18 +65,18 @@
             android:exported="false" />
 
         <activity
-            android:name=".LogsActivity"
+            android:name=".logs.LogsActivity"
             android:theme="@style/Theme.CropTranslator"
             android:excludeFromRecents="true"
             android:exported="false" />
 
         <activity
-            android:name=".VocabularyDetailActivity"
+            android:name=".vocabulary.VocabularyDetailActivity"
             android:theme="@style/Theme.CropTranslator"
             android:exported="false" />
 
         <activity
-            android:name=".AboutActivity"
+            android:name=".about.AboutActivity"
             android:theme="@style/Theme.CropTranslator"
             android:exported="false" />
 

@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * The appearance switches, read straight from the settings file so that every screen picks up a change
  * without the caller passing anything down. The keys live here because they are the contract between
- * the settings page and the font layer; [me.sgly.translator.SettingsManager] writes them through this.
+ * the settings page and the font layer; [me.sgly.translator.settings.SettingsManager] writes them through this.
  */
 object JapaneseFontPreferences {
     const val MIUI_ADAPTATION = "japaneseFontMiuiAdaptation"

@@ -18,6 +18,7 @@
 .cxx
 plan.md
 DESIGN.md
+.trash/
 backup/
 node_modules
 quick-test/crop.png

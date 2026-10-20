@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import me.sgly.translator.AppLog
+import me.sgly.translator.logs.AppLog
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
