@@ -1,17 +1,20 @@
 package me.sgly.translator
 
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AppBarWithSearch
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -19,25 +22,33 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SearchBarScrollBehavior
 import androidx.compose.material3.SearchBarState
-import androidx.compose.material3.SearchBarValue
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -61,13 +72,11 @@ internal fun MainScaffold(
         VocabularyDatabase.get(context).vocabularyDao().summaries()
     }.collectAsState(initial = null)
     val searchQuery = rememberTextFieldState()
-    val searchBarState =
-        remember {
-            SearchBarState(
-                initialValue = SearchBarValue.Collapsed,
-                animationSpecForExpand = spring<Float>(),
-                animationSpecForCollapse = spring<Float>(),
-            )
+    val searchBarState = rememberSearchBarState()
+    val searchScrollBehavior = SearchBarDefaults.enterAlwaysSearchBarScrollBehavior()
+    val scrollStates =
+        rememberSaveable(saver = ScrollStatesSaver) {
+            Destination.entries.associateWith { ScrollState(0) }
         }
 
     var destination by rememberSaveable { mutableStateOf(Destination.WordList) }
@@ -83,6 +92,7 @@ internal fun MainScaffold(
                 SearchTopBar(
                     query = searchQuery,
                     state = searchBarState,
+                    scrollBehavior = searchScrollBehavior,
                     onSearch = { term ->
                         scope.launch {
                             snackbarHostState.showSnackbar(resources.getString(R.string.search_done, term))
@@ -129,18 +139,43 @@ internal fun MainScaffold(
             }
         },
     ) { innerPadding ->
+        val contentModifier =
+            Modifier
+                .contentBottomInset(innerPadding)
+                .fillMaxSize()
+                .statusBarScrim()
         Box(
             modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(bottom = StartButtonOverhang),
+                if (destination == Destination.WordList) {
+                    contentModifier.nestedScroll(searchScrollBehavior.nestedScrollConnection)
+                } else {
+                    contentModifier
+                },
         ) {
             when (destination) {
-                Destination.WordList -> summaries?.let { VocabularyListScreen(summaries = it) }
-                Destination.Practice -> PlaceholderScreen(stringResource(R.string.practice_placeholder))
-                Destination.Stats -> StatsScreen()
-                Destination.Settings -> SettingsScreen(settingsManager)
+                Destination.WordList -> {
+                    summaries?.let { list ->
+                        if (list.isEmpty()) {
+                            PlaceholderScreen(stringResource(R.string.vocabulary_empty), innerPadding)
+                        } else {
+                            ScrollablePage(scrollStates.getValue(destination), innerPadding) {
+                                VocabularyListScreen(summaries = list)
+                            }
+                        }
+                    }
+                }
+
+                Destination.Practice -> {
+                    PlaceholderScreen(stringResource(R.string.practice_placeholder), innerPadding)
+                }
+
+                Destination.Stats -> {
+                    ScrollablePage(scrollStates.getValue(destination), innerPadding) { StatsScreen() }
+                }
+
+                Destination.Settings -> {
+                    ScrollablePage(scrollStates.getValue(destination), innerPadding) { SettingsScreen(settingsManager) }
+                }
             }
         }
     }
@@ -148,9 +183,88 @@ internal fun MainScaffold(
 
 private enum class Destination { WordList, Practice, Stats, Settings }
 
+private val ScrollStatesSaver: Saver<Map<Destination, ScrollState>, List<Int>> =
+    Saver(
+        save = { states -> Destination.entries.map { states.getValue(it).value } },
+        restore = { offsets ->
+            Destination.entries
+                .mapIndexed { index, destination -> destination to ScrollState(offsets.getOrNull(index) ?: 0) }
+                .toMap()
+        },
+    )
+
 private val StartButtonSize = 64.dp
 
-internal val StartButtonOverhang = 16.dp
+/** Scroll viewport for a tab: content runs to the window top, and its end clears the start button's overhang. */
+@Composable
+private fun ScrollablePage(
+    scrollState: ScrollState,
+    contentPadding: PaddingValues,
+    content: @Composable () -> Unit,
+) {
+    val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this) }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .contentTopInset(contentPadding, statusBarHeight)
+                .padding(bottom = StartButtonOverhang),
+    ) {
+        content()
+    }
+}
+
+/** Measure-time read: the bar writes its height into the scaffold padding on every scroll frame. */
+private fun Modifier.contentTopInset(
+    contentPadding: PaddingValues,
+    statusBarHeight: Int,
+): Modifier =
+    this.layout { measurable, constraints ->
+        val top = maxOf(contentPadding.calculateTopPadding().roundToPx(), statusBarHeight)
+        val placeable = measurable.measure(constraints)
+        layout(placeable.width, placeable.height + top) { placeable.place(0, top) }
+    }
+
+/** Reserves the bar and status bar area above a page that has nothing to scroll. */
+private fun Modifier.contentTopReserve(
+    contentPadding: PaddingValues,
+    statusBarHeight: Int,
+): Modifier =
+    this.layout { measurable, constraints ->
+        val top = maxOf(contentPadding.calculateTopPadding().roundToPx(), statusBarHeight)
+        val placeable =
+            measurable.measure(
+                constraints.copy(maxHeight = (constraints.maxHeight - top).coerceAtLeast(constraints.minHeight)),
+            )
+        layout(placeable.width, placeable.height + top) { placeable.place(0, top) }
+    }
+
+/** Measure-time read: reading the scaffold padding in composition would recompose the content on every bar frame. */
+private fun Modifier.contentBottomInset(contentPadding: PaddingValues): Modifier =
+    this.layout { measurable, constraints ->
+        val bottom = contentPadding.calculateBottomPadding().roundToPx()
+        val placeable =
+            measurable.measure(
+                constraints.copy(maxHeight = (constraints.maxHeight - bottom).coerceAtLeast(constraints.minHeight)),
+            )
+        layout(placeable.width, placeable.height + bottom) { placeable.place(0, 0) }
+    }
+
+/** The status bar draws nothing itself, so its inset gets a translucent layer over the content. */
+@Composable
+private fun Modifier.statusBarScrim(): Modifier {
+    val color = MaterialTheme.colorScheme.surface.copy(alpha = StatusBarScrimAlpha)
+    val height = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this) }.toFloat()
+    return this.drawWithContent {
+        drawContent()
+        drawRect(color = color, size = Size(size.width, height))
+    }
+}
+
+private val StatusBarScrimAlpha = 0.8f
+
+private val StartButtonOverhang = 16.dp
 
 @Composable
 private fun StartButton(
@@ -179,10 +293,18 @@ private fun StartButton(
 private fun SearchTopBar(
     query: TextFieldState,
     state: SearchBarState,
+    scrollBehavior: SearchBarScrollBehavior,
     onSearch: (String) -> Unit,
 ) {
     AppBarWithSearch(
         state = state,
+        scrollBehavior = scrollBehavior,
+        colors =
+            SearchBarDefaults.appBarWithSearchColors(
+                appBarContainerColor = Color.Transparent,
+                scrolledAppBarContainerColor = Color.Transparent,
+            ),
+        shadowElevation = SearchBarShadowElevation,
         inputField = {
             SearchBarDefaults.InputField(
                 textFieldState = query,
@@ -195,10 +317,16 @@ private fun SearchTopBar(
     )
 }
 
+private val SearchBarShadowElevation = 3.dp
+
 @Composable
-private fun PlaceholderScreen(message: String) {
+private fun PlaceholderScreen(
+    message: String,
+    contentPadding: PaddingValues,
+) {
+    val statusBarHeight = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this) }
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.contentTopReserve(contentPadding, statusBarHeight).fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
         Text(

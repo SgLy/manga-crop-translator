@@ -3,14 +3,9 @@ package me.sgly.translator.settings
 import android.content.Intent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,7 +24,6 @@ import me.sgly.translator.logs.LogsActivity
 @Composable
 internal fun SettingsScreen(settingsManager: SettingsManager) {
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
 
     var forwardLogsToLogcat by remember { mutableStateOf(settingsManager.forwardLogsToLogcat) }
 
@@ -37,8 +31,6 @@ internal fun SettingsScreen(settingsManager: SettingsManager) {
         modifier =
             Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .verticalScroll(scrollState)
                 .padding(start = 24.dp, top = 16.dp, end = 24.dp),
     ) {
         ModelSection(settingsManager)

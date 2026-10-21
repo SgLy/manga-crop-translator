@@ -2,6 +2,7 @@ package me.sgly.translator
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import me.sgly.translator.capture.CapturePermissionActivity
 import me.sgly.translator.logs.AppLog
 import me.sgly.translator.settings.SettingsManager
@@ -13,6 +14,7 @@ class MainActivity : CapturePermissionActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         settingsManager = SettingsManager(this)
         AppLog.forwardToLogcat = settingsManager.forwardLogsToLogcat
         NotoSerifJp.refresh(this)
