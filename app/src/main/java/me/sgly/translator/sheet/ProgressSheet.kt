@@ -1,5 +1,6 @@
 package me.sgly.translator.sheet
 
+import android.content.Intent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -19,12 +20,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import me.sgly.translator.R
+import me.sgly.translator.logs.LogsActivity
 import me.sgly.translator.settings.SettingsManager
 import me.sgly.translator.state.AppPhase
 import me.sgly.translator.state.TransitionReason
@@ -113,6 +117,7 @@ private fun stepStatuses(
 @Composable
 private fun ProgressActions(phase: AppPhase) {
     if (phase != AppPhase.OcrError && phase != AppPhase.TranslateError) return
+    val context = LocalContext.current
     HorizontalFloatingToolbar(
         expanded = true,
         modifier =
@@ -120,6 +125,20 @@ private fun ProgressActions(phase: AppPhase) {
                 .fillMaxWidth()
                 .padding(top = 12.dp, bottom = 24.dp),
     ) {
+        // The toolbar sizes its container from its first child's x offset, so this leading button also
+        // keeps the height at ContainerSize — replacing it with a Spacer inflates the sheet to a blob.
+        TextButton(
+            onClick = {
+                TranslatorState.transition(AppPhase.ShowingLogs, TransitionReason.ShowLogs)
+                context.startActivity(Intent(context, LogsActivity::class.java))
+            },
+            colors =
+                ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                ),
+        ) {
+            Text(stringResource(R.string.action_logs))
+        }
         Spacer(modifier = Modifier.weight(1f))
         Button(
             onClick = {
