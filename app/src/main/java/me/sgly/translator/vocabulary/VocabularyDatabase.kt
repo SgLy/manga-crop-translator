@@ -145,9 +145,11 @@ abstract class VocabularyDao {
     abstract suspend fun deleteWord(wordId: Long)
 
     /**
-     * Every headword once, most recently recorded first, so a word jumps back to the front each time
-     * it is recorded again. Its meanings are the three it has carried most often, most frequent first:
-     * that order survives the GROUP_CONCAT only because SQLite materialises the ordered subquery first.
+     * Headwords matching [keyword] in the headword, its reading, its etymology or any entry's meaning;
+     * an empty keyword matches every headword. Each headword comes back once, most recently recorded
+     * first, so a word jumps back to the front each time it is recorded again. Its meanings are the
+     * three it has carried most often, most frequent first: that order survives the GROUP_CONCAT only
+     * because SQLite materialises the ordered subquery first.
      */
     @Query(
         """
@@ -162,10 +164,19 @@ abstract class VocabularyDao {
                          LIMIT 3) m) AS definitions,
                (SELECT COUNT(*) FROM vocabulary_entry e WHERE e.wordId = w.id) AS entryCount
         FROM vocabulary_word w
+        WHERE :keyword = ''
+           OR w.lemma LIKE '%' || :keyword || '%'
+           OR w.reading LIKE '%' || :keyword || '%'
+           OR w.origin LIKE '%' || :keyword || '%'
+           OR EXISTS (SELECT 1 FROM vocabulary_entry e
+                       WHERE e.wordId = w.id
+                         AND e.definition LIKE '%' || :keyword || '%')
         ORDER BY (SELECT MAX(e.createdAt) FROM vocabulary_entry e WHERE e.wordId = w.id) DESC
         """,
     )
-    abstract fun summaries(): Flow<List<VocabularySummary>>
+    abstract fun search(keyword: String): Flow<List<VocabularySummary>>
+
+    fun summaries(): Flow<List<VocabularySummary>> = search("")
 
     @Transaction
     @Query("SELECT * FROM vocabulary_word WHERE id = :wordId")

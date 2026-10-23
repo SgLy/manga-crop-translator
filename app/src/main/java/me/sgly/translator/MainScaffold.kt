@@ -12,24 +12,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AppBarWithSearch
+import androidx.compose.material3.ExpandedFullScreenContainedSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.SearchBarScrollBehavior
-import androidx.compose.material3.SearchBarState
+import androidx.compose.material3.SearchBarValue
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSearchBarState
+import androidx.compose.material3.rememberContainedSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -49,7 +47,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -58,9 +55,11 @@ import kotlinx.coroutines.launch
 import me.sgly.translator.settings.SettingsManager
 import me.sgly.translator.settings.SettingsScreen
 import me.sgly.translator.stats.StatsScreen
+import me.sgly.translator.vocabulary.SearchResults
 import me.sgly.translator.vocabulary.VocabularyDatabase
 import me.sgly.translator.vocabulary.VocabularyListScreen
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MainScaffold(
     settingsManager: SettingsManager,
@@ -73,7 +72,8 @@ internal fun MainScaffold(
         VocabularyDatabase.get(context).vocabularyDao().summaries()
     }.collectAsState(initial = null)
     val searchQuery = rememberTextFieldState()
-    val searchBarState = rememberSearchBarState()
+    val searchBarState = rememberContainedSearchBarState()
+    val searchBarColors = SearchBarDefaults.containedColors(state = searchBarState)
     val searchScrollBehavior = SearchBarDefaults.enterAlwaysSearchBarScrollBehavior()
     val scrollStates =
         rememberSaveable(saver = ScrollStatesSaver) {
@@ -81,25 +81,55 @@ internal fun MainScaffold(
         }
 
     var destination by rememberSaveable { mutableStateOf(Destination.WordList) }
-    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val resources = LocalResources.current
+
+    val collapseSearchBar: () -> Unit = { scope.launch { searchBarState.animateToCollapsed() } }
+
+    val inputField: @Composable () -> Unit = {
+        SearchBarDefaults.InputField(
+            textFieldState = searchQuery,
+            searchBarState = searchBarState,
+            onSearch = { collapseSearchBar() },
+            placeholder = { Text(stringResource(R.string.search_hint)) },
+            leadingIcon = {
+                if (searchBarState.targetValue == SearchBarValue.Expanded) {
+                    IconButton(onClick = collapseSearchBar) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_arrow_back),
+                            contentDescription = stringResource(R.string.cd_back),
+                        )
+                    }
+                } else {
+                    Icon(painter = painterResource(R.drawable.ic_search), contentDescription = null)
+                }
+            },
+            colors = searchBarColors.inputFieldColors,
+        )
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (destination == Destination.WordList) {
-                SearchTopBar(
-                    query = searchQuery,
+                AppBarWithSearch(
                     state = searchBarState,
                     scrollBehavior = searchScrollBehavior,
-                    onSearch = { term ->
-                        scope.launch {
-                            snackbarHostState.showSnackbar(resources.getString(R.string.search_done, term))
-                        }
-                    },
+                    colors =
+                        SearchBarDefaults.appBarWithSearchColors(
+                            searchBarColors = searchBarColors,
+                            appBarContainerColor = Color.Transparent,
+                            scrolledAppBarContainerColor = Color.Transparent,
+                        ),
+                    shadowElevation = SearchBarShadowElevation,
+                    inputField = inputField,
                 )
+                ExpandedFullScreenContainedSearchBar(
+                    state = searchBarState,
+                    inputField = inputField,
+                    colors = searchBarColors,
+                ) {
+                    SearchResults(searchQuery.text.toString())
+                }
             }
         },
         bottomBar = {
@@ -287,35 +317,6 @@ private fun StartButton(
             modifier = Modifier.fillMaxSize(),
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SearchTopBar(
-    query: TextFieldState,
-    state: SearchBarState,
-    scrollBehavior: SearchBarScrollBehavior,
-    onSearch: (String) -> Unit,
-) {
-    AppBarWithSearch(
-        state = state,
-        scrollBehavior = scrollBehavior,
-        colors =
-            SearchBarDefaults.appBarWithSearchColors(
-                appBarContainerColor = Color.Transparent,
-                scrolledAppBarContainerColor = Color.Transparent,
-            ),
-        shadowElevation = SearchBarShadowElevation,
-        inputField = {
-            SearchBarDefaults.InputField(
-                textFieldState = query,
-                searchBarState = state,
-                onSearch = onSearch,
-                placeholder = { Text(stringResource(R.string.search_hint)) },
-                leadingIcon = { Icon(painter = painterResource(R.drawable.ic_search), contentDescription = null) },
-            )
-        },
-    )
 }
 
 private val SearchBarShadowElevation = 3.dp

@@ -62,7 +62,7 @@
     <string name="show_reasoning">Show reasoning</string>
     <string name="show_token_usage">Show token usage</string>
     <string name="search_hint">Search</string>
-    <string name="search_done">Searched %1$s</string>
+    <string name="search_empty">Not a word of it anywhere</string>
     <string name="nav_word_list_title">Word book</string>
     <string name="nav_practice_title">Practice</string>
     <string name="nav_stats_title">Stats</string>

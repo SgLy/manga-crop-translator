@@ -61,7 +61,7 @@
     <string name="show_reasoning">展示思考过程</string>
     <string name="show_token_usage">显示推理用量</string>
     <string name="search_hint">搜索</string>
-    <string name="search_done">搜索了 %1$s</string>
+    <string name="search_empty">没有找到这样的单词</string>
     <string name="nav_word_list_title">单词本</string>
     <string name="nav_practice_title">练习</string>
     <string name="nav_stats_title">统计</string>
