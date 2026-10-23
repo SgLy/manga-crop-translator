@@ -144,7 +144,7 @@ private fun OverlayScreenContent(
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             bitmap = bitmap.asImageBitmap(),
-            contentDescription = "Frozen Screen",
+            contentDescription = stringResource(R.string.cd_frozen_screen),
             modifier = Modifier.fillMaxSize(),
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
         )

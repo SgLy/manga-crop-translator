@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
@@ -225,7 +226,7 @@ private fun FabButton() {
                 )
                 Image(
                     painter = painterResource(R.drawable.ic_launcher_foreground),
-                    contentDescription = "Translate",
+                    contentDescription = stringResource(R.string.cd_translate),
                     modifier = Modifier.fillMaxSize(),
                 )
             }

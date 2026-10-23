@@ -92,7 +92,7 @@ internal class ChatStreamReader(
 
             val finalJson = if (functionArguments.isNotEmpty()) functionArguments.toString() else contentBuilder.toString()
             AppLog.d("$tag/ResponseBody") { "\u2190 Assembled final JSON:\n$finalJson" }
-            if (finalJson.isEmpty()) throw Exception("No valid tool calls or content found in $tag response")
+            if (finalJson.isEmpty()) throw ModelResponseEmptyException("No valid tool calls or content found in $tag response")
             finalJson
         }
 }

@@ -9,6 +9,10 @@
     <string name="cd_ttft">首字延迟</string>
     <string name="cd_elapsed">总耗时</string>
     <string name="cd_token_rate">每秒 token 数</string>
+    <string name="cd_done">完成</string>
+    <string name="cd_error">错误</string>
+    <string name="cd_frozen_screen">已冻结的屏幕</string>
+    <string name="cd_translate">翻译</string>
     <string name="start">开始</string>
     <string name="vocabulary_empty">什么都没有，白茫茫一片</string>
 
@@ -33,6 +37,13 @@
     <string name="action_export">导出</string>
     <string name="share_logs_title">分享日志</string>
     <string name="logs_export_failed">导出失败了。</string>
+    <string name="error_ocr_empty">OCR 未识别到文字，请检查图片识别模型的接口与模型是否支持图片输入。</string>
+    <string name="error_unknown">请求失败，详情见日志。</string>
+    <string name="error_missing_visual_model_api_key">缺少图片识别模型的 API 密钥，请在设置中配置。</string>
+    <string name="error_missing_translate_model_api_key">缺少翻译模型的 API 密钥，请在设置中配置。</string>
+    <string name="error_request_failed">请求失败（HTTP %1$d）。</string>
+    <string name="error_response_unparsable">模型返回的内容无法解析，详情见日志。</string>
+    <string name="error_response_empty">模型没有返回可用内容，详情见日志。</string>
     <string name="action_think_harder">再想想</string>
     <string name="action_save">记一下</string>
     <plurals name="saved_words">
@@ -77,13 +88,14 @@
     <string name="stats_legend_more">多</string>
     <string name="stats_empty">还没有记录。翻译一次，这里就会有数据。</string>
 
+    <string name="language_section">语言</string>
+    <string name="language_follow_system">跟随系统</string>
+
     <string name="appearance_section">外观</string>
     <string name="japanese_font_miui_adaptation">MIUI 日文字体粗细跟随系统</string>
     <string name="japanese_font_variable">使用可变字重日文字体</string>
     <string name="japanese_font_download_title">下载可变字重日文字体</string>
     <string name="japanese_font_download_message">MIUI 下，系统自带的日文衬线字体并不支持可变字重，因此只有两种粗细外观，无法完全跟随系统设置的字体粗细。\n\n为了达到更好的粗细显示效果，我们需要额外下载 Noto Serif JP VF。它是系统自带的日文衬线字体的可变字重版本，是由谷歌推出的开源、免费使用字体，遵循开放字体协议（Open Font License）。OFL 的完整文本可以在「关于」页面中的「开源协议」里找到。\n\n你可以选择从 GitHub 或 jsDelivr 下载这个字体，这两个网站提供的字体是完全一致的。</string>
-    <string name="japanese_font_download_github">GitHub</string>
-    <string name="japanese_font_download_jsdelivr">jsDelivr</string>
     <string name="japanese_font_downloading">正在下载 %1$s</string>
     <string name="japanese_font_download_failed">下载失败了。你可以试试从另一个网站下载，或者换一个网络。</string>
     <string name="japanese_font_downloaded">已下载（%1$s）</string>

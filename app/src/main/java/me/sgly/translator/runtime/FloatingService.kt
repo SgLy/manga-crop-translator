@@ -154,9 +154,7 @@ class FloatingService :
             // The request may have finished after the run was cancelled.
             currentCoroutineContext().ensureActive()
             if (result.blocks.isEmpty()) {
-                TranslatorState.setErrorText(
-                    "OCR returned empty text. Please check if your VisualModel endpoint and model support image inputs.",
-                )
+                TranslatorState.setErrorText(getString(R.string.error_ocr_empty))
                 TranslatorState.transition(AppPhase.OcrError, TransitionReason.OcrFailed)
             } else {
                 TranslatorState.setOcrResult(result)
@@ -165,7 +163,7 @@ class FloatingService :
         } catch (e: Exception) {
             // A run the user dismissed is not a failure; leave the state alone.
             currentCoroutineContext().ensureActive()
-            TranslatorState.setErrorText("Error: ${e.message}")
+            TranslatorState.setErrorText(e.userMessage(this))
             TranslatorState.transition(AppPhase.OcrError, TransitionReason.OcrFailed)
         }
     }
@@ -188,7 +186,7 @@ class FloatingService :
         } catch (e: Exception) {
             // A run the user dismissed is not a failure; leave the state alone.
             currentCoroutineContext().ensureActive()
-            TranslatorState.setErrorText("Error: ${e.message}")
+            TranslatorState.setErrorText(e.userMessage(this))
             TranslatorState.transition(AppPhase.TranslateError, TransitionReason.TranslateFailed)
         }
     }

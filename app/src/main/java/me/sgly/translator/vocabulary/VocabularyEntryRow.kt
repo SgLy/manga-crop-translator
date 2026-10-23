@@ -1,5 +1,6 @@
 package me.sgly.translator.vocabulary
 
+import android.text.format.DateUtils
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.expandVertically
@@ -33,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -184,6 +186,7 @@ private fun DeleteWordDialog(
 
 @Composable
 private fun EntryRow(entry: VocabularyEntry) {
+    val context = LocalContext.current
     Column(modifier = Modifier.fillMaxWidth()) {
         Row {
             Text(
@@ -195,7 +198,14 @@ private fun EntryRow(entry: VocabularyEntry) {
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = formatAddedAt(entry.createdAt),
+                text =
+                    DateUtils.formatDateTime(
+                        context,
+                        entry.createdAt,
+                        DateUtils.FORMAT_SHOW_DATE or
+                            DateUtils.FORMAT_SHOW_TIME or
+                            DateUtils.FORMAT_ABBREV_MONTH,
+                    ),
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
@@ -238,8 +248,3 @@ private fun sentenceWithSurfaceHighlighted(
     }
     append(sentence, index + surface.length, sentence.length)
 }
-
-private fun formatAddedAt(millis: Long): String =
-    android.text.format.DateFormat
-        .format("yyyy-MM-dd HH:mm", millis)
-        .toString()

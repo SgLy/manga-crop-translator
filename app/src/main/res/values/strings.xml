@@ -9,6 +9,10 @@
     <string name="cd_ttft">Time to first token</string>
     <string name="cd_elapsed">Elapsed time</string>
     <string name="cd_token_rate">Tokens per second</string>
+    <string name="cd_done">Done</string>
+    <string name="cd_error">Error</string>
+    <string name="cd_frozen_screen">Frozen Screen</string>
+    <string name="cd_translate">Translate</string>
     <string name="start">Start</string>
     <string name="vocabulary_empty">Nothing at all, a boundless expanse of white</string>
 
@@ -33,6 +37,13 @@
     <string name="action_export">Export</string>
     <string name="share_logs_title">Share logs</string>
     <string name="logs_export_failed">Could not export the logs.</string>
+    <string name="error_ocr_empty">OCR returned empty text. Please check if your VisualModel endpoint and model support image inputs.</string>
+    <string name="error_unknown">Request failed. Details are in the logs.</string>
+    <string name="error_missing_visual_model_api_key">VisualModel API Key is missing. Please configure it in settings.</string>
+    <string name="error_missing_translate_model_api_key">TranslateModel API Key is missing. Please configure it in settings.</string>
+    <string name="error_request_failed">Request failed (HTTP %1$d).</string>
+    <string name="error_response_unparsable">The model response could not be parsed. Details are in the logs.</string>
+    <string name="error_response_empty">The model returned no usable content. Details are in the logs.</string>
     <string name="action_think_harder">Think harder</string>
     <string name="action_save">Take a note</string>
     <string name="action_got_it">Got it</string>
@@ -78,13 +89,18 @@
     <string name="stats_legend_more">More</string>
     <string name="stats_empty">Nothing here yet — translate something and the numbers will show up.</string>
 
+    <string name="language_section">Language</string>
+    <string name="language_follow_system">Follow system</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_zh_hans" translatable="false">简体中文</string>
+
     <string name="appearance_section">Appearance</string>
     <string name="japanese_font_miui_adaptation">Follow the system font weight for Japanese (MIUI)</string>
     <string name="japanese_font_variable">Use a variable-weight Japanese font</string>
     <string name="japanese_font_download_title">Download the variable-weight Japanese font</string>
     <string name="japanese_font_download_message">On MIUI, the built-in Japanese serif font has no variable weight, so it shows only two thicknesses and cannot fully follow the system font weight setting.\n\nFor a better result we need to download “Noto Serif JP VF”. It is the variable-weight version of that built-in font: an open-source, free font released by Google under the Open Font License. The full OFL text is on the About page, under Open source licenses.\n\nYou can download it from GitHub or jsDelivr; both sites serve exactly the same font.</string>
-    <string name="japanese_font_download_github">GitHub</string>
-    <string name="japanese_font_download_jsdelivr">jsDelivr</string>
+    <string name="japanese_font_download_github" translatable="false">GitHub</string>
+    <string name="japanese_font_download_jsdelivr" translatable="false">jsDelivr</string>
     <string name="japanese_font_downloading">Downloading %1$s</string>
     <string name="japanese_font_download_failed">Download failed. You can try the other site, or a different network.</string>
     <string name="japanese_font_downloaded">Downloaded (%1$s)</string>

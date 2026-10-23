@@ -83,6 +83,9 @@ androidComponents {
             GeneratePromptsTask::outputDirectory,
         )
     }
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.androidResources.localeFilters.addAll(listOf("en-rXA", "ar-rXB"))
+    }
 }
 
 android {
@@ -101,12 +104,26 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    androidResources {
+        localeFilters += listOf("en", "zh")
+    }
+
     buildTypes {
+        getByName("debug") {
+            isPseudoLocalesEnabled = true
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+
+    lint {
+        abortOnError = true
+        error += listOf("MissingTranslation", "MissingQuantity", "ImpliedQuantity")
+        fatal += listOf("ExtraTranslation", "MissingDefaultResource")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

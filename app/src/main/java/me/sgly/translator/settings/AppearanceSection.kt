@@ -107,4 +107,8 @@ internal fun AppearanceSection(settingsManager: SettingsManager) {
             )
         }
     }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    LanguageSection()
 }

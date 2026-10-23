@@ -56,7 +56,7 @@ class OpenAIApiClient(
                     model = settingsManager.visualModel,
                 )
             if (connection.apiKey.isEmpty()) {
-                throw Exception("VisualModel API Key is missing. Please configure it in settings.")
+                throw MissingApiKeyException(ModelRole.Visual)
             }
 
             val userContent =
@@ -130,9 +130,7 @@ class OpenAIApiClient(
                     )
                 }
             if (connection.apiKey.isEmpty()) {
-                throw Exception(
-                    "${if (useVisualModel) "VisualModel" else "TranslateModel"} API Key is missing. Please configure it in settings.",
-                )
+                throw MissingApiKeyException(if (useVisualModel) ModelRole.Visual else ModelRole.Translate)
             }
 
             val tool =
@@ -254,7 +252,7 @@ class OpenAIApiClient(
                         if (!response.isSuccessful) {
                             val errorBody = response.body.string()
                             AppLog.e("$tag/RequestError", "API Error Response: ${response.code} - $errorBody")
-                            throw Exception("$tag request failed: ${response.code}\n$errorBody")
+                            throw ModelRequestFailedException(response.code, errorBody)
                         }
 
                         stream.read(response)
@@ -301,7 +299,7 @@ class OpenAIApiClient(
             jsonDecoder.decodeFromString(deserializer, cleanJson)
         } catch (e: Exception) {
             AppLog.e("$tag/ParseError", "Failed to parse JSON: $finalJson", e)
-            throw Exception("Failed to parse JSON: ${e.message}\n$finalJson")
+            throw ModelResponseParseException(finalJson, e)
         }
     }
 

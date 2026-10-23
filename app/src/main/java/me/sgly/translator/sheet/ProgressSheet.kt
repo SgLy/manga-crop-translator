@@ -236,7 +236,7 @@ private fun StepIcon(status: StepUiStatus) {
         StepUiStatus.Done -> {
             Icon(
                 painter = painterResource(R.drawable.ic_check),
-                contentDescription = "Done",
+                contentDescription = stringResource(R.string.cd_done),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.size(16.dp),
             )
@@ -245,7 +245,7 @@ private fun StepIcon(status: StepUiStatus) {
         StepUiStatus.Error -> {
             Icon(
                 painter = painterResource(R.drawable.ic_error),
-                contentDescription = "Error",
+                contentDescription = stringResource(R.string.cd_error),
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(16.dp),
             )
