@@ -8,7 +8,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -89,14 +90,15 @@ private fun AboutPage(
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.Center,
+                    .padding(horizontal = 24.dp)
+                    .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Spacer(modifier = Modifier.height(80.dp))
             Image(
                 painter = painterResource(R.drawable.ic_launcher_foreground),
                 contentDescription = null,
-                modifier = Modifier.size(96.dp),
+                modifier = Modifier.size(120.dp),
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -119,7 +121,7 @@ private fun AboutPage(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(text = "SgLy", style = MaterialTheme.typography.bodyMedium)
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(80.dp))
             OutlinedButton(onClick = onOpenLicenses) {
                 Text(stringResource(R.string.about_licenses))
             }
